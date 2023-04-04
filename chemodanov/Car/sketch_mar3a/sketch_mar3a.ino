@@ -23,8 +23,8 @@ char diraction;
 
 void difference_angle(int &difference){
   if (analogPin0 < 500 && analogPin1 < 500){
-    return;
-  }else  return difference = 2 * abs(analogPin0 - analogPin1);
+    return difference = 1 * abs(analogPin0 - analogPin1);
+  }else  return difference = 1 * abs(analogPin0 - analogPin1);
 }
 
 void regular (int &speed){
@@ -127,10 +127,6 @@ void setup() {
   pinMode(5, INPUT);
   pinMode(4, INPUT);
   pinMode(11, INPUT);
-  bool doubleClick = false;
-  servo.attach(8);
-  servo1.attach(9);
-  bool stop = false;
 }
 
 void loop() {
@@ -148,6 +144,8 @@ void loop() {
   Serial.print(timer_speed);
   Serial.print(',');
   Serial.print(regular_speed);
+  Serial.print(',');
+  Serial.print(angle_speed);
   Serial.println();
 
   difference_angle(difference);

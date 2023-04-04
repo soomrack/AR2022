@@ -1,21 +1,26 @@
-//A0-LIGHT
-//A1-WATER
-
-//2-температура?
-//4-реле
-//5-помпа
-//6-светодиод
-//7-ветилятор
 #include <DHT.h>
 
-#define DHTPIN 2            //what pin we're connected to
+//цифровой сигнал
+#define DHTPIN 2            //контакт подклчения датчика температуры
+#define RELAY 4             //контакт реле
+#define WATER_PUMP 5        //помпа
+#define LIGHT_DIODE 6       //лента
+#define FAN 7               //вентилятор
+
+//аналоговый сигнал
+#define SENSOR_LIGHT A0     //сенсор освещения
+#define SENSOR_WATER A1     //сенсор влажности
+
 #define DHTTYPE DHT21       //DHT 21  (AM2301)
-DHT dht(DHTPIN, DHTTYPE);   //Initialize DHT sensor for normal 16mhz Arduino
+DHT dht(DHTPIN, DHTTYPE);   //инициализация dht датчика
 
 //Variables
 float hum;  //Stores humidity value
 float temp; //Stores temperature value
-int timer = 0;
+std::string LIGHTING_SIGNAL = " ";
+std::string FAN_SIGNAL = " ";
+std::string RELAY_SIGNAL = " ";
+std::string PUMP_SIGNAL = " ";
 
 void setup() {
   Serial.begin(9600);
@@ -25,55 +30,21 @@ void setup() {
 void loop() {
   
   
-  int sensorLight = analogRead(A0);
-  int sensorWater = analogRead(A1);
-  //Serial.println(timer);
+  int sensorLight = analogRead(SENSOR_LIGHT);
+  int sensorWater = analogRead(SENSOR_WATER);
 
-  //bool sensorTemp;
+  pinMode(DHTPIN, INPUT);
+  pinMode(RELAY, OUTPUT);
+  pinMode(WATER_PUMP, OUTPUT);
+  pinMode(LIGHT_DIODE, OUTPUT);
+  pinMode(FAN, OUTPUT);
 
-  //pinMode(5, OUTPUT);
-  pinMode(2, INPUT);
-  pinMode(4, OUTPUT);
-  pinMode(5, OUTPUT);
-  pinMode(6, OUTPUT);
-  pinMode(7, OUTPUT);
+  LIGHTING_SIGNAL = (SENSOR_LIGHT > 1000) ? "HIGH" : "LOW";
+  PUMP_SIGNAL = (SENSOR_WATER >= 500) ? "HIGH" : "LOW";
+  FAN_SIGNAL = (SENSOR_WATER >= 500) ? "LOW" : "HIGH";
 
-  //Serial.println(sensorWater);
-  digitalWrite(4, LOW);
-
-  //if (sensorLight > 1000){
-  //if (timer < 10)
-  //digitalWrite(6, HIGH);
-  //  else if (timer < 20)
-  //    digitalWrite(6, LOW);
-  //  else timer = 0;
-  //} else digitalWrite(6, LOW);
-
-  if (sensorLight > 1000)
-  {
-    digitalWrite(6, HIGH);
-    delay(5000);
-  }
-  else
-    digitalWrite(6, LOW);
-
-  
-  if (sensorWater >= 500){
-    digitalWrite(5, HIGH);
-    digitalWrite(7, LOW);
-  }   
-  else {
-    digitalWrite(5, LOW);
-    digitalWrite(7, HIGH);
-  } 
-
-  Serial.print("Humidity: ");
-  Serial.print(hum);
-  Serial.print("%,  Temperature: ");
-  Serial.print(temp);
-  Serial.println(" Celsius");
-  
-  //delay(2000); //Delay 2 sec.
-
-  timer++;
+  digitalWrite(RELAY, RELAY_SIGNAL);
+  digitalWrite(PUMP, PUMP_SIGNAL);
+  digitalWrite(FAN, FAN_SIGNAL);
+  digitalWrite(LIGHT_DIODE, LIGHTING_SIGNAL);
 }

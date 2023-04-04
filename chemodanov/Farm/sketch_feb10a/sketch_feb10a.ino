@@ -28,10 +28,6 @@ void setup() {
 }
 
 void loop() {
-  
-  
-  int sensorLight = analogRead(SENSOR_LIGHT);
-  int sensorWater = analogRead(SENSOR_WATER);
 
   pinMode(DHTPIN, INPUT);
   pinMode(RELAY, OUTPUT);
@@ -39,9 +35,9 @@ void loop() {
   pinMode(LIGHT_DIODE, OUTPUT);
   pinMode(FAN, OUTPUT);
 
-  LIGHTING_SIGNAL = (SENSOR_LIGHT > 1000) ? "HIGH" : "LOW";
-  PUMP_SIGNAL = (SENSOR_WATER >= 500) ? "HIGH" : "LOW";
-  FAN_SIGNAL = (SENSOR_WATER >= 500) ? "LOW" : "HIGH";
+  LIGHTING_SIGNAL = (analogRead(SENSOR_LIGHT) > 1000) ? "HIGH" : "LOW";
+  PUMP_SIGNAL = (analogRead(SENSOR_WATER) >= 500) ? "HIGH" : "LOW";
+  FAN_SIGNAL = (analogRead(SENSOR_WATER) >= 500) ? "LOW" : "HIGH";
 
   digitalWrite(RELAY, RELAY_SIGNAL);
   digitalWrite(PUMP, PUMP_SIGNAL);

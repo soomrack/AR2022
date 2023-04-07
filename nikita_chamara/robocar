@@ -1,0 +1,73 @@
+#define ld A1 //подключение портов
+#define pd A2
+#define M1_DIR 4
+#define M1_PWM 5
+#define M2_DIR 7
+#define M2_PWM 6
+
+void InitMotors() //подключение портов для управления моторами
+{
+  pinMode(M1_DIR, OUTPUT); 
+  pinMode(M1_PWM, OUTPUT);
+  pinMode(M2_DIR, OUTPUT);
+  pinMode(M2_PWM, OUTPUT);
+}
+
+void Motors(int Speed1, int Speed2)//подпрограмма управления двигателями
+{
+  if (Speed1 > 255) Speed1 = 255; //ограничения по скоростям
+  if (Speed1 < -255) Speed1 = -255;
+  if (Speed2 > 255) Speed2 = 255;
+  if (Speed2 < -255) Speed2 = -255;
+
+  if (Speed1 > 0) //управление для первого мотора
+  {
+    digitalWrite(M1_DIR, 1);
+    analogWrite(M1_PWM, Speed1);
+  }
+  else
+  {
+    digitalWrite(M1_DIR, 0);
+    analogWrite(M1_PWM, -Speed1);
+  }
+
+  if (Speed2 > 0) //управление для второго мотора
+  {
+    digitalWrite(M2_DIR, 1);
+    analogWrite(M2_PWM, Speed2);
+  }
+  else
+  {
+    digitalWrite(M2_DIR, 0);
+    analogWrite(M2_PWM, -Speed2);
+  }
+}
+
+void setup()
+{
+  Serial.begin(9600); //скорость работы порта
+  pinMode(12, INPUT_PULLUP);//объявим порт кнопки для устранения дребезга
+  InitMotors(); //запускаем подпрограмму, объявляющую порты двигателя
+}
+
+int k = 0; //вводим переменную состояния (значение 0 - тележка ждет нажатия кнопки, значение 1 - тележка начинает движение по линии)
+int avgspeed = 190; //вводим переменную, отвечающую за среднее значение скорости движения тележки (скорость движения, если оба датчика стоят на белом)
+int kP = 4.15; //вводим переменную, коэффициента P-регулятора
+
+void loop() {
+  int LDc = analogRead(ld); //считываем показания левого датчика в переменную
+  int PDc = analogRead(pd); //считываем показания правого датчика в переменную
+  int LD = map (LDc, 530, 899, 100, 0); //преобразуем значения с левого датчика в диапазон от 0 до 100 (0-черный, 100-белый), (LDc, черное, белое, 100, 0)
+  int PD = map (PDc, 356, 853, 100, 0); //преобразуем значения с правого датчика в диапазон от 0 до 100 (0-черный, 100-белый),(PDr, черное, белое, 100, 0)
+  int button = digitalRead(12); //считываем показания с кнопки
+  Serial.println(String(k) + ' ' + String(button) + ' ' + String(LDc) + ' ' + String(PDc)); //экран показания кнопки, переменной состояния, показания левого датчика и правого датчика (для калибровки датчиков)
+  if (button == 0) //изменяем переменную состояния, если кнопка была нажата
+  {
+    k = 1;
+  }
+  if (k == 1) { //проверка состояния и начало движения
+    int correctionL = LD * kP; //переменная корректировки по LD
+    int correctionR = PD * kP; //переменная корректировки по PD
+    Motors(avgspeed - correctionL + correctionR, avgspeed - correctionR + correctionL); //запуск моторов с учетом корректировок
+  }
+}

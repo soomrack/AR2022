@@ -1,0 +1,136 @@
+#define light_sensor_left A0 //прописываем подключения портов, чтоб не запоминать что куда подключено
+#define light_sensor_right A1
+#define m1_dir 4
+#define m1_pwm 5
+#define m2_dir 7
+#define m2_pwm 6
+
+int STATE = 0; //вводим переменную состояния (значение 0 - тележка ждет нажатия кнопки, значение 1 - тележка начинает движение по линии, 2 - поиск линии)
+int AVG_SPEED = 160; //вводим переменную, отвечающую за среднее значение скорости движения тележки (скорость движения, если оба датчика стоят на белом)
+int K_P = 3; //вводим переменную, коэффициента P-регулятора
+int LAST = 0; //вводим переменную второго состояния, которая показывает какой последний датчик видел линию, чтобы понимать в какую сторону от линии слетел робот (1-левый датчик, 2-правый датчик,)
+int SPIRAL_SPEED = 0; //вводим переменную для движения по спирали
+
+void init_motors() //объявляем порты, отвечающие за управление двигателями
+{
+  pinMode(m1_dir, OUTPUT);
+  pinMode(m1_pwm, OUTPUT);
+  pinMode(m2_dir, OUTPUT);
+  pinMode(m2_pwm, OUTPUT);
+}
+
+void motors(int speed_1, int speed_2)//подпрограмма управления двигателями
+{
+  if (speed_1 > 255) speed_1 = 255; //задаем ограничения по входным скоростям (ограничение ШИМ 255 = 100% скорость вращения двигателя)
+  if (speed_1 < -255) speed_1 = -255;
+  if (speed_2 > 255) speed_2 = 255;
+  if (speed_2 < -255) speed_2 = -255;
+
+  if (speed_1 > 0) //если входное значение больше 0, значит двигатель надо вращать вперед, соответсвтенно на дискретный порт подается 1 (вперед), на аналог значение скорости вращения.
+  {
+    digitalWrite(m1_dir, 1);
+    analogWrite(m1_pwm, speed_1);
+  }
+  else //если входное значение меньше 0, значит двигатель надо вращать назад, соответсвтенно на дискретный порт подается 0 (назад), на аналог значение скорости вращения по модулю.
+  {
+    digitalWrite(m1_dir, 0);
+    analogWrite(m1_pwm, -speed_1);
+  }
+
+  if (speed_2 > 0) //аналогичное управление для второго мотора
+  {
+    digitalWrite(m2_dir, 1);
+    analogWrite(m2_pwm, speed_2);
+  }
+  else
+  {
+    digitalWrite(m2_dir, 0);
+    analogWrite(m2_pwm, -speed_2);
+  }
+}
+void search (int light_left_corrected, int light_right_corrected) { //программа поиска линии
+  if (LAST == 0) { //линия где-то прямо
+    if (light_left_corrected > 50) { 
+      motors(100, 100);
+    }
+    else {
+      STATE = 1;
+    }
+  }
+  if (LAST == 2) {// линия где-то справа, крутим спираль вправо, пока левый датчик не уидит линию
+    if (light_left_corrected > 50) {
+      motors(-50 + SPIRAL_SPEED, 150 + SPIRAL_SPEED);
+      delay(150);
+      SPIRAL_SPEED += 1;
+    }
+    else {
+      STATE = 1;
+      SPIRAL_SPEED = 0;
+    }
+  }
+  if (LAST == 1) {// линия где-то слева, крутим спираль влево, пока правый датчик не уидит линию 
+    if (light_right_corrected > 50) {
+      motors(150 + SPIRAL_SPEED, -50 + SPIRAL_SPEED);
+      delay(150);
+      SPIRAL_SPEED += 1;
+    }
+    else {
+      STATE = 1;
+      SPIRAL_SPEED = 0;
+    }
+  }
+}
+
+void setup()
+{
+  Serial.begin(9600); //объявляем скорость работы сериал порта
+  pinMode(12, INPUT_PULLUP);//объявим порт кнопки с pullup для устранения возможного дребезга
+  init_motors(); //запускаем подпрограмму, объявляющую порты двигателя
+}
+
+void loop() {
+  int light_left = analogRead(light_sensor_left); //считываем показания левого датчика в переменную
+  int light_right = analogRead(light_sensor_right); //считываем показания правого датчика в переменную
+  int light_left_corrected = map (light_left, 481, 912, 100, 0); //преобразуем значения с левого датчика в диапазон от 0 до 100 (0-черный, 100-белый), значения 357 и 862 соответсвуют показаниям левого датчика на черном и белом соответственно
+  int light_right_corrected = map (light_right, 527, 920, 100, 0); //преобразуем значения с правого датчика в диапазон от 0 до 100 (0-черный, 100-белый), значения 541 и 912 соответсвуют показаниям левого датчика на черном и белом соответственно
+  int button = digitalRead(12); //считываем показания с кнопки
+  Serial.println(String(STATE) + ' ' + String(button) + ' ' + String(light_left) + ' ' + String(light_right)); //выводим на экран показания кнопки, переменной состояния, показания левого датчика и правого датчика (для калибровки датчиков и проверки работоспособности кнопки)
+  if (button == 0 & STATE == 0) //переключение состояния из ожидания в состояние движения по нажатию кнопки
+  {
+    STATE = 1;
+    delay(200);
+  }
+  else if (SPIRAL_SPEED > 150 or (button == 0 & (STATE == 1 or STATE == 2))) //переключение состояния из движения в состояние ожидания и сброс всех переменных
+  {
+    STATE = 0;
+    LAST = 0;
+    SPIRAL_SPEED = 0;
+    delay(200);
+  }
+  if (STATE == 1) { //начало движения
+    int correction_left = light_left_corrected * K_P; //переменная корректировки по левому датчику
+    int correction_right = light_right_corrected * K_P; //переменная корректировки по правому датчику
+    if (correction_left > 100 or correction_right > 100) { //если корректировки большие, то низкая средняя скорость
+      AVG_SPEED = 50;
+    }
+    else { //если корректировки малые, то высокая средняя скорости
+      AVG_SPEED = 200;
+    }
+    motors(AVG_SPEED - correction_left + correction_right, AVG_SPEED + correction_left - correction_right); //запуск моторов с учетом корректировок для движения по линии
+    if (light_left_corrected > 50 and light_right_corrected < 10) { //запись стороны (в переменную LAST), где находится линия относительно центра работа, чтоб в случае её утери знать в какую сторону искать.
+      LAST = 2;
+    }
+    else if (light_right_corrected > 50 and light_left_corrected < 10) {
+      LAST = 1;
+    }
+    if (light_left_corrected > 80 and light_right_corrected > 80) { //оба датчика на белом, значит слетели с линии, запуск состояния поиска
+      STATE = 2;
+    }
+  }
+  else if (STATE == 0) { //нулевое состояние - моторы стоп
+    motors(0, 0);
+  }
+  if (STATE == 2) { //состояние поиска утерянной линии
+    search (light_left_corrected, light_right_corrected);
+  }
+}

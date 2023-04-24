@@ -5,63 +5,65 @@
 #define M1_PWM 5
 #define M2_DIR 7
 #define M2_PWM 6
+#define BUTTON12 12
 
-int gray = 850;
-int time = 0;
-float K1 = 0.65;
-float a,b;
-float K2 = 0.02;
+#define SENSOR_LEFT A2
+#define SENSOR_RIGHT A1
+
+#define CHENGES_SPEED 180
+#define MAX_SPEED 255
+
+#define K1 0.65
+#define K2 0.02
+
+#define gray 850
+
 int I = 0;
 int prevEr = 0;
 int err = 0;
 
-int ButtonRead(int ButtonPin)
-{
-  int Data = digitalRead(ButtonPin);
-  if(ButtonPin == 12) Data = !Data;
-  return Data;
+void SetupPinMode() {
+  InitMotors();
+  InitButton();
 }
 
-void InitMotors()
-{
+void InitMotors() {
   pinMode(M1_DIR, OUTPUT);
   pinMode(M1_PWM, OUTPUT);
   pinMode(M2_DIR, OUTPUT);
   pinMode(M2_PWM, OUTPUT);
 }
 
-void Motors(int Speed1, int Speed2)
-{
-  if(Speed1 > 255) Speed1 = 255;
-  if(Speed1 < -255) Speed1 = -255;
-  if(Speed2 > 255) Speed2 = 255;
-  if(Speed2 < -255) Speed2 = -255;
+void InitButton() {
+  pinMode(BUTTON12, INPUT_PULLUP);
+}
 
-  if(Speed1 > 0)
-  {
+void Motors(int Speed1, int Speed2) {
+  if(Speed1 > MAX_SPEED) Speed1 = MAX_SPEED;
+  if(Speed1 < -MAX_SPEED) Speed1 = -MAX_SPEED;
+  if(Speed2 > MAX_SPEED) Speed2 = MAX_SPEED;
+  if(Speed2 < -MAX_SPEED) Speed2 = -MAX_SPEED;
+
+  if(Speed1 > 0) {
     digitalWrite(M1_DIR, 1);
     analogWrite(M1_PWM, Speed1);
   }
-  else
-  {
+  else {
     digitalWrite(M1_DIR, 0);
     analogWrite(M1_PWM, -Speed1);
   }
 
-  if(Speed2 > 0)
-  {
+  if(Speed2 > 0) {
     digitalWrite(M2_DIR, 1);
     analogWrite(M2_PWM, Speed2);
   }
-  else
-  {
+  else {
     digitalWrite(M2_DIR, 0);
     analogWrite(M2_PWM, -Speed2);
   }
 }
 
-int LineSensorRead(int SensorPin)
-{
+int LineSensorRead(int SensorPin) {
   if(SensorPin < A0 || SensorPin > A3)
     return -1;
 
@@ -69,54 +71,52 @@ int LineSensorRead(int SensorPin)
   return Data;
 }
 
-void Print()
-{
-  Serial.print(a);
+void Print(float mR, float mL, int sR, int sL) {
+  Serial.print(mR);
   Serial.print(',');
-  Serial.print(b);
+  Serial.print(mL);
   Serial.print(',');
-  Serial.print(LineSensorRead(A1));
+  Serial.print(LineSensorRead(SENSOR_RIGHT));
   Serial.print(',');
-  Serial.print(LineSensorRead(A2));
+  Serial.print(LineSensorRead(SENSOR_LEFT));
   Serial.print(',');
   Serial.print(I);
   Serial.println();
 }
 
-void Stop()
-{
+void Stop() {
   Motors(0, 0);
 }
 
-int integrator(int I, int input)
-{
+int integrator(int I, int input) {
   I += K2*(err - prevEr);
   return I;
 }
 
-void setup()
-{
-  pinMode(12, INPUT_PULLUP);
-  InitMotors();
+bool ButtonState(int pin) {
+  bool btnState = !digitalRead(BUTTON12);
+  if (btnState && !flag) flag = true;  // обработчик нажатия
+  if (!btnState && flag) flag = false; // обработчик отпускания
+  return flag;
+}
+
+void setup() {
+  SetupPinMode();
   Serial.begin(9600);
 }
 
-
-
-void loop()
-{
+void loop() {
   int sensor;
-  while(!ButtonRead(12)) 
-  {
-    sensor = LineSensorRead(A2) - LineSensorRead(A1);
+  float motor_right, motor_left;
+  while(1) {
+    sensor = LineSensorRead(SENSOR_LEFT) - LineSensorRead(SENSOR_RIGHT);
     err = sensor - gray; 
-    a = 180 - K1 * sensor - I;// + LineSensorRead(A2))/2
-    b = 180 + K1 * sensor + I;
-    Motors(a,b);
+    motor_right = 180 - K1 * sensor - I;// + LineSensorRead(A2))/2
+    motor_left = 180 + K1 * sensor + I;
+    Motors(motor_right, motor_left);
     I = integrator(I, sensor);
     prevEr = err - I;
-    Print();
+    Print(motor_right,motor_left,LineSensorRead(SENSOR_RIGHT),LineSensorRead(SENSOR_LEFT));
   }
   Stop();
-  time++;
 }

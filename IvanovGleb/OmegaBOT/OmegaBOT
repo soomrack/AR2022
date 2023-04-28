@@ -1,9 +1,9 @@
-#define left_light_sensor A0 // подключения портов
-#define right_light_sensor A1 
-#define M2_DIR 4 // в скобках правый мотор справа, левый мотор слева
-#define M2_PWM 5
-#define M1_DIR 7
-#define M1_PWM 6
+#define left_light_sensor A0 // Объявление пинов
+#define right_light_sensor A1 // Объявление пинов
+#define M2_DIR 4 // Объявление пинов
+#define M2_PWM 5 // Объявление пинов
+#define M1_DIR 7 // Объявление пинов
+#define M1_PWM 6 // Объявление пинов
 
 
 void Motors(int Speed1, int Speed2)//подпрограмма управления двигателями

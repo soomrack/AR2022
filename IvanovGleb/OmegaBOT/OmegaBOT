@@ -4,7 +4,7 @@
 #define M2_PWM 5 // Объявление пинов
 #define M1_DIR 7 // Объявление пинов
 #define M1_PWM 6 // Объявление пинов
-
+#define speaker 9 // Объявление пинов
 
 void Motors(int Speed1, int Speed2)//подпрограмма управления двигателями
 {
@@ -118,11 +118,13 @@ void loop()
   int button = digitalRead(12); //считываем показания с кнопки
   if (button == 0 and State == 0)
   {
+    tone(9, 104, 1000);
     State = 1;
     delay(300);
   }
   else if (button == 0 and State == 1)
   {
+    tone(9, 104, 1000);
     State = 0;
     delay(300);
   }
@@ -139,7 +141,10 @@ void loop()
       last_detected = 2;
     }
     if (sensor_left_converted > 50 and sensor_right_converted > 50){ // условие для потери линии, т.е. оба датчика видят белый цвет
+     { 
+      tone(9, 104, 1000);
       State = 2;
+     }
     }
   }
   

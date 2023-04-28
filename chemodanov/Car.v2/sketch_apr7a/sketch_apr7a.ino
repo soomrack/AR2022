@@ -11,6 +11,7 @@
 
 #define SENSOR_LEFT A2
 #define SENSOR_RIGHT A1
+#define SENSOR_DATA 500
 
 #define CHENGES_SPEED 180
 #define MAX_SPEED 255
@@ -21,20 +22,22 @@
 #define GRAY 850
 #define DELAY_SWITCH 500
 #define BUZZER_ESPIRAL 100
+#define DATA_SPEED 9600
+#define MAX_RANGE_RANDOM 50
 
 int I = 0;
 int prevEr = 0;
 int err = 0;
 int _state = 0;
 
-void SetupPinMode() {
+void SetupPinMode() {//функция объявления всех подключаемых компонентов 
   InitMotors();
   InitButton();
   InitBuzzer();
   return;
 }
 
-void InitMotors() {
+void InitMotors() {//объявление моторов
   pinMode(M1_DIR, OUTPUT);
   pinMode(M1_PWM, OUTPUT);
   pinMode(M2_DIR, OUTPUT);
@@ -42,17 +45,17 @@ void InitMotors() {
   return;
 }
 
-void InitButton() {
+void InitButton() {//объявление кнопок
   pinMode(BUTTON, INPUT_PULLUP);
   return;
 }
 
-void InitBuzzer() {
+void InitBuzzer() {//объявление зуммера
   pinMode(BUZZER, OUTPUT);
   return;
 }
 
-bool ButtonState(int pin) {
+bool ButtonState(int pin) {//функция нажатия клавиши с обработкой состояний
   bool btnState = !digitalRead(pin);
   if (btnState && !flag) flag = true;  // обработчик нажатия
   if (!btnState && flag) flag = false; // обработчик отпускания
@@ -60,21 +63,21 @@ bool ButtonState(int pin) {
   return flag;
 }
 
-void BuzzerVoice(int t) {
+void BuzzerVoice(int t) {//функция пищалки
   digitalWrite(BUZZER, true);
   delay(t);
   digitalWrite(BUZZER, false);
   delay(t);
 }
 
-bool MoreNumber(float power) {
-  bool flag;
+bool MoreNumber(float power) {//функция проверки максимального значения
+  bool flag;                  //передаваемого на мотор для функции спирали
   if (power < 255) flag = false;
   else flag = true;
   return flag;
 }
 
-void Motors(int Speed1, int Speed2) {
+void Motors(int Speed1, int Speed2) {//функция работы моторов
   if(Speed1 > MAX_SPEED) Speed1 = MAX_SPEED;
   if(Speed1 < -MAX_SPEED) Speed1 = -MAX_SPEED;
   if(Speed2 > MAX_SPEED) Speed2 = MAX_SPEED;
@@ -100,12 +103,12 @@ void Motors(int Speed1, int Speed2) {
   return;
 }
 
-void Stop() {
+void Stop() {//остановка моторов
   Motors(0, 0);
   return;
 }
 
-int LineSensorRead(int SensorPin) {
+int LineSensorRead(int SensorPin) {//чтение данных с датчика по аналаг
   if(SensorPin < A0 || SensorPin > A3)
     return -1;
 
@@ -131,17 +134,17 @@ void BotState() {//_state
   int sensor;
   float motor_right, motor_left;
   int time;
-  if (!ButtonState(BUTTON) && LineSensorRead(SENSOR_LEFT) < 500 && LineSensorRead(SENSOR_RIGHT) < 500) _state = 0;
-  if ( ButtonState(BUTTON) && LineSensorRead(SENSOR_LEFT) < 500 && LineSensorRead(SENSOR_RIGHT) < 500) _state = 1;
-  if ((_state == 1 || _state == 3) && LineSensorRead(SENSOR_LEFT) < 500 && LineSensorRead(SENSOR_RIGHT) < 500) _state = 2;
+  if (!ButtonState(BUTTON) && LineSensorRead(SENSOR_LEFT) < SENSOR_DATA && LineSensorRead(SENSOR_RIGHT) < SENSOR_DATA) _state = 0;
+  if ( ButtonState(BUTTON) && LineSensorRead(SENSOR_LEFT) < SENSOR_DATA && LineSensorRead(SENSOR_RIGHT) < SENSOR_DATA) _state = 1;
+  if ((_state == 1 || _state == 3) && LineSensorRead(SENSOR_LEFT) < SENSOR_DATA && LineSensorRead(SENSOR_RIGHT) < SENSOR_DATA) _state = 2;
   if ((_state == 1 || _state == 2)) _state = 3;
-  switch (_state) {
+  switch (_state) {//кейс состояний
     case 0:
       Stop();
       break;
     case 1:
-      if (LineSensorRead(SENSOR_LEFT) < 500 && LineSensorRead(SENSOR_RIGHT) < 500) _state = 2;
-      if (LineSensorRead(SENSOR_LEFT) > 500 || LineSensorRead(SENSOR_RIGHT) > 500) _state = 3;
+      if (LineSensorRead(SENSOR_LEFT) < SENSOR_DATA && LineSensorRead(SENSOR_RIGHT) < SENSOR_DATA) _state = 2;
+      if (LineSensorRead(SENSOR_LEFT) > SENSOR_DATA || LineSensorRead(SENSOR_RIGHT) > SENSOR_DATA) _state = 3;
       break;
     case 2:
       MoveEspiral(_state);
@@ -160,8 +163,8 @@ void MoveEspiral(int& state, float& power_r, float& power_l, int& time) {
   float r = power_r;
   float l = power_l;
   if (r == 0 && l == 0) {
-    r = rand() % 50;
-    l = rand() % 50;
+    r = rand() % MAX_RANGE_RANDOM;
+    l = rand() % MAX_RANGE_RANDOM;
   }
   if (LineSensorRead(SENSOR_LEFT) > 500 || LineSensorRead(SENSOR_RIGHT) > 500) state = 3;
   if (MoreNumber(r)) r++;
@@ -173,24 +176,24 @@ void MoveEspiral(int& state, float& power_r, float& power_l, int& time) {
 
 void MoveBot(int& sensor, float& motor_right, float& motor_left) {
   sensor = LineSensorRead(SENSOR_LEFT) - LineSensorRead(SENSOR_RIGHT);
-  err = sensor - GRAY; 
-  motor_right = 180 - K1 * sensor - I;// + LineSensorRead(A2))/2
-  motor_left = 180 + K1 * sensor + I;
+  err = sensor - GRAY;//вычисляемая ошибка для I
+  motor_right = CHENGES_SPEED - K1 * sensor - I;//расчет скорости для правой пары колес
+  motor_left = CHENGES_SPEED + K1 * sensor + I;//расчет скорости для левой пары колес
   Motors(motor_right, motor_left);
-  I = integrator(I, sensor);
-  prevEr = err - I;
-  Print(motor_right,motor_left,LineSensorRead(SENSOR_RIGHT),LineSensorRead(SENSOR_LEFT));
+  I = Integrator(I, sensor);
+  prevEr = err - I;//сохраняем ошибку - I
+  //Print(motor_right,motor_left,LineSensorRead(SENSOR_RIGHT),LineSensorRead(SENSOR_LEFT));
   return;
 }
 
-int integrator(int I, int input) {
+int Integrator(int I, int input) {//интегртор
   I += K2*(err - prevEr);
   return I;
 }
 
 void setup() {
   SetupPinMode();
-  Serial.begin(9600);
+  Serial.begin(DATA_SPEED);
 }
 
 void loop() {

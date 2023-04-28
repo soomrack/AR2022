@@ -52,14 +52,17 @@ int kP = 4.15; // коэффициент P-регулятора
 int last_detected = 0; // переменная, определяющая датчик, который последний раз видел линию (0 - левый, 1 - правый)
 int spiral_speed = 0; // скорость при движении по спирали
 
-void entering_line(){
-  if (last_detected == 1){
+void entering_line()
+{
+  if (last_detected == 1)
+  {
     Motors(100,0);
     delay(500);
     Motors(0,0);
     delay(500);
   }
-  else if (last_detected == 2){
+  else if (last_detected == 2)
+  {
     Motors(0,100);
     delay(500);
     Motors(0,0);
@@ -68,51 +71,63 @@ void entering_line(){
 }
 
 void find_way (int sensor_left_converted, int sensor_right_converted){ //функция для поиска линии движением по спирали
-  if (last_detected == 0){ // Линия не замечена
-    if (sensor_left_converted > 50){
+  if (last_detected == 0) // Линия не замечена
+  {                                                        
+    if (sensor_left_converted > 50)
+    {
       State = 1;
     }
   }
-  if (last_detected == 1){ // Левый датчик засек линию,значит она где-то слева, двигаем против часовой стрелки до момента детектирования линии правым датчиком
-    if (sensor_right_converted < 50){
+  if (last_detected == 1)  // Левый датчик засек линию,значит она где-то слева, двигаем против часовой стрелки до момента детектирования линии правым датчиком
+  {                                          
+    if (sensor_right_converted < 50)
+    {
       entering_line();
       State = 1;
       spiral_speed = 0;
     }
-    else {
+    else 
+    {
       Motors(140 + spiral_speed, -40 + spiral_speed);
       delay(100);
       spiral_speed++;
     }
   }
-  if (last_detected == 2){ // Правый датчик засек линию,значит она где-то справа, двигаем по часовой стрелки до момента детектирования линии левым датчиком
-    if (sensor_left_converted < 50){
+  if (last_detected == 2) // Правый датчик засек линию,значит она где-то справа, двигаем по часовой стрелки до момента детектирования линии левым датчиком
+  { 
+    if (sensor_left_converted < 50)
+    {
       entering_line();
       State = 1;
       spiral_speed = 0;
     }
-    else{
+    else
+    {
       Motors(-40 + spiral_speed, 140 + spiral_speed);
       delay(100);
       spiral_speed++;
     }
   }
   
-void loop() {
+void loop() 
+{
   int sensor_left = analogRead(left_light_sensor); //считываем показания левого датчика в переменную
   int sensor_right = analogRead(right_light_sensor); //считываем показания правого датчика в переменную
   int sensor_left_converted = map (sensor_left, 533, 917, 100, 0); //преобразуем значения с левого датчика в диапазон от 0 до 100 (0-черный, 100-белый), значения 533 и 917 соответсвуют показаниям левого датчика на черном и белом соответственно
   int sensor_right_converted = map (sensor_right, 355, 868, 100, 0); //преобразуем значения с правого датчика в диапазон от 0 до 100 (0-черный, 100-белый), значения 355 и 868 соответсвуют показаниям левого датчика на черном и белом соответственно
   int button = digitalRead(12); //считываем показания с кнопки
-  if (button == 0 and State == 0){
+  if (button == 0 and State == 0)
+  {
     State = 1;
     delay(300);
   }
-  else if (button == 0 and State == 1){
+  else if (button == 0 and State == 1)
+  {
     State = 0;
     delay(300);
   }
-  if (State == 1) { // начало движения
+  if (State == 1) // начало движения
+  { 
     int correction_left = sensor_left_converted * kP; //переменная корректировки по левому датчику
     int correction_right = sensor_right_converted * kP; //переменная корректировки по правому датчику
     Motors(avgspeed - correction_left + correction_right, avgspeed - correction_right + correction_left); //запуск моторов с учетом корректировок
@@ -128,10 +143,12 @@ void loop() {
     }
   }
   
-  if (State == 0){ // условие остановки по кнопке
+  if (State == 0) // условие остановки по кнопке
+  { 
     Motors(0,0);
   }
-  if (State == 2){ // условие запуска функции поиска линии при потере линии
+  if (State == 2) // условие запуска функции поиска линии при потере линии
+  { 
     find_way(sensor_left_converted, sensor_right_converted);
   }
 }

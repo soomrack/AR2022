@@ -146,5 +146,11 @@ void loop()
  {
    state_search_line(correct_L, correct_R);
  }
- 
+ if (SpeedSP > 150 or (digitalRead(12) == 0 & (STATE == 1 or STATE == 2)))
+  {
+    STATE = 0;
+    POSLEDNEE_ST = 0;
+    SpeedSP = 0;
+    delay(200);
+  }
 }

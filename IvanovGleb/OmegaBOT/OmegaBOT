@@ -82,7 +82,7 @@ void find_way (int sensor_left_converted, int sensor_right_converted){ //фун�
     else {
       Motors(140 + spiral_speed, -40 + spiral_speed);
       delay(100);
-      spiral_speed += 1;
+      spiral_speed++;
     }
   }
   if (last_detected == 2){ // Правый датчик засек линию,значит она где-то справа, двигаем по часовой стрелки до момента детектирования линии левым датчиком
@@ -94,7 +94,7 @@ void find_way (int sensor_left_converted, int sensor_right_converted){ //фун�
     else{
       Motors(-40 + spiral_speed, 140 + spiral_speed);
       delay(100);
-      spiral_speed += 1;
+      spiral_speed++;
     }
   }
   

@@ -24,6 +24,7 @@
 #define BUZZER_ESPIRAL 100
 #define DATA_SPEED 9600
 #define MAX_RANGE_RANDOM 50
+#define LESS_WHITE 500
 
 int I = 0;
 int prevEr = 0;
@@ -70,7 +71,7 @@ void BuzzerVoice(int t) {//функция голоса пищалки
 
 bool MoreNumber(float power) {//функция проверки максимального значения
   bool flag;                  //передаваемого на мотор для функции спирали
-  if (power < 255) flag = false;
+  if (power < MAX_SPEED) flag = false;
   else flag = true;
   return flag;
 }
@@ -163,7 +164,7 @@ void MoveEspiral(int& state, float& power_r, float& power_l, int& time) {
     r = rand() % MAX_RANGE_RANDOM;
     l = rand() % MAX_RANGE_RANDOM;
   }
-  if (LineSensorRead(SENSOR_LEFT) > 500 || LineSensorRead(SENSOR_RIGHT) > 500) state = 3;
+  if (LineSensorRead(SENSOR_LEFT) > LESS_WHITE || LineSensorRead(SENSOR_RIGHT) > LESS_WHITE) state = 3;
   if (MoreNumber(r)) r++;
   if (MoreNumber(l)) l++;
   if (MoreNumber(r) && MoreNumber(l)) time++;
@@ -182,8 +183,8 @@ void MoveBot(int& sensor, float& motor_right, float& motor_left, int& state, boo
     state = 0;
     state_b = true;
   }
-  if (ButtonState(LineSensorRead(SENSOR_LEFT) < 500 && LineSensorRead(SENSOR_RIGHT))) state = 2;
-  Print(motor_right,motor_left,LineSensorRead(SENSOR_RIGHT),LineSensorRead(SENSOR_LEFT));
+  if (LineSensorRead(SENSOR_LEFT) < LESS_WHITE && LineSensorRead(SENSOR_RIGHT) < LESS_WHITE) state = 2;
+  //Print(motor_right,motor_left,LineSensorRead(SENSOR_RIGHT),LineSensorRead(SENSOR_LEFT));
 }
 
 void Integrator(int& I, int err, int prevEr) {//интегртор

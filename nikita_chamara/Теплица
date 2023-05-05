@@ -1,4 +1,4 @@
-#include <TroykaDHT.h>
+#include <T_DHT.h>
 DHT dht(2, DHT21);  //датчик темп. и влаги подключен в порт D2
 //порты управления реле:
 #define VENT 7

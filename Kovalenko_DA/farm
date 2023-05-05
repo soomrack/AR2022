@@ -1,0 +1,144 @@
+#include <TroykaDHT.h>
+DHT dht(2, DHT21);  //датчик темп. и влаги подключен в порт D2
+#define AIR 7
+#define HEAT 4
+#define LIGHT 6
+#define PUMP 5
+#define VENT 7
+#define LIGHT_SENSOR A0
+#define HUMIDITY_SENSOR A1
+
+int MIN_HUMIDITY = 50;
+int MAX_HUMIDITY = 70;
+
+void setup() {
+  pinMode(HEAT, OUTPUT);
+  pinMode(AIR, OUTPUT);
+  pinMode(LIGHT, OUTPUT);
+  pinMode(PUMP, OUTPUT);
+  Serial.begin(9600);
+  delay(2000);
+}
+
+enum Regime {day,night};
+enum Regime curr_regime = night;
+
+int TIME = 0;  //секунды с начала дня, 16*60*60 - начало ночи
+//обозначаем глобальные переменные для показаний датчика темп. и влажности воздуха
+int CURRENT_TEMPERATURE = 20;
+int CURRENT_AIR_HUMIDITY = 50;
+
+
+
+void start_light() {
+  if (curr_regime == day) {
+    if (analogRead(LIGHT_SENSOR) < 100) digitalWrite(LIGHT, HIGH);
+    else digitalWrite(LIGHT, LOW);
+  } else digitalWrite(LIGHT, LOW);
+}
+
+void start_vent() {
+  boolean vent_on;                       // переменная тригер включения вентилятора, для цикла for ниже
+  for (int i = 2; i <= 12; i = i + 2) {  // проветривать по расписанию, каждые 2 часа, цикл for реализует перебор времен, в которые может быть проветривание
+    if (((i * 60 * 60) - (15 * 60)) < TIME < (i * 60 * 60)) {
+      vent_on = HIGH;
+      digitalWrite(VENT, vent_on);
+    }
+    else {
+      vent_on = LOW;
+      digitalWrite(VENT, vent_on);
+    }
+  }
+}
+
+
+
+void start_heat() {
+  dht.read();// включать обогрев и вентилятор если холодно по датчику температуры воздуха, включать только вентилятор, если жарко
+  if (CURRENT_TEMPERATURE < 25) {
+    digitalWrite(VENT, 1);
+    digitalWrite(HEAT, 1);
+  }
+  if (CURRENT_TEMPERATURE > 35) {
+    digitalWrite(VENT, 1);
+    digitalWrite(HEAT, 0);
+  } else {
+    digitalWrite(VENT, 0);
+    digitalWrite(HEAT, 0);
+  }
+}
+
+enum Regime_pump {humidity_ok, irrigation, hold, vent};
+enum Regime_pump regime_pump = humidity_ok;
+
+void (*greenhouse_action[])(void)={&regime_day, &regime_night};
+
+
+void start_pump() {
+  int hold_time = 60;
+  int watering_time = 15;
+  int vent_time = 15; 
+  if (regime_pump == humidity_ok) {
+    if (analogRead(HUMIDITY_SENSOR) < MIN_HUMIDITY) {
+      regime_pump = irrigation;
+    }
+    else if (analogRead(HUMIDITY_SENSOR) > MAX_HUMIDITY){
+      regime_pump = vent;
+    }
+    else{
+      regime_pump = hold;
+    }
+  }
+  if (regime_pump == irrigation) {
+    for (int i = watering_time; i > 0; i--){
+      digitalWrite(PUMP, HIGH);
+      delay (1);
+    }
+    digitalWrite(PUMP, LOW);
+    regime_pump = hold;
+  }
+  if (regime_pump == hold) {
+    for (int i = hold_time; i > 0; i--){
+      delay(1);
+    }
+    regime_pump == humidity_ok;
+  }
+  if (regime_pump == vent){  // запуск вентиляции
+    for (int i = vent_time; i > 0; i--){
+      digitalWrite(VENT, HIGH);
+      delay(1);
+    }
+    digitalWrite(VENT, LOW);
+    regime_pump = hold;
+  }
+}
+
+
+void regime_day() {
+  start_light();
+  start_vent();
+  start_heat();
+  start_pump();
+}
+
+void regime_night() {
+  start_light();
+  start_vent();
+  start_heat();
+  start_pump();
+}
+
+
+void loop() {
+  delay(1);
+  TIME++;
+  if (TIME >= 24 * 60 * 60){
+    TIME = 0;
+    curr_regime = day;
+  }
+  if (TIME > 16*60*60){
+    curr_regime = night;
+  }
+  greenhouse_action[curr_regime];
+  
+}

@@ -1,146 +1,135 @@
-#include <T_DHT.h>
-DHT dht(2, DHT21);  //датчик темп. и влаги подключен в порт D2
-//порты управления реле:
-#define VENT 7
-#define HEAT 4
-#define LIGHT 6
-#define PUMP 5
-//порты датчиков:
-#define LIGHT_SENSOR A0
-#define HUMIDITY_SENSOR A1
-//задать необходимые поддерживаемые характеристики
-#define REQUIRED_HUMIDITY 50
+#include <TroykaDHT.h>
+DHT dht(2, DHT21); //датчик темп. и влажности подключен в порт D2
+#define AIR 7 // вентилятор
+#define HEAT 4 // нагреватель
+#define LIGHT 6 // освещение
+#define PUMP 5 //насос
+#define VENT 7 //вентилятор
+#define SVET_SENSOR A0 //датчик освещенности
+#define VLAZN_SENSOR A1 // датчик влажности
 
+int MIN_VLAZN = 60;
+int MAX_VLAZN = 75;
 
 void setup() {
-  pinMode(HEAT, OUTPUT);
-  pinMode(VENT, OUTPUT);
+ pinMode(HEAT, OUTPUT);
+ pinMode(AIR, OUTPUT);
   pinMode(LIGHT, OUTPUT);
   pinMode(PUMP, OUTPUT);
   Serial.begin(9600);
   delay(2000);
 }
 
-enum Regime { day,
-              night
-            };
-enum Regime regime;
-unsigned int TIME = 0;  //секунды с начала дня, 16*60*60 - начало ночи
-//обозначаем глобальные переменные для показаний датчика темп. и влажности воздуха
-int CURRENT_TEMPERATURE = 20;
-int CURRENT_AIR_HUMIDITY = 50;
+enum Regime {day,night};
+enum Regime tekushiy_regim = night;
 
-void dht_sensor() {
-  dht.read();
-  switch (dht.getState()) {
-    case DHT_OK:
-      CURRENT_TEMPERATURE = dht.getTemperatureC();
-      CURRENT_AIR_HUMIDITY = dht.getHumidity();
-      break;
-    case DHT_ERROR_CHECKSUM:
-      Serial.println("Checksum error");
-      break;
-    case DHT_ERROR_TIMEOUT:
-      Serial.println("Time out error");
-      break;
-    case DHT_ERROR_NO_REPLY:
-      Serial.println("Sensor not connected");
-      break;
-  }
-}
+int TIME = 0;  //секунды с начала дня, 16*60*60 - цикл начинается с ночи
+int CURRENT_TEMPERATURE = 20; //обозначаем глобальные переменные для показаний датчика температуры
+int CURRENT_AIR_VLAZN = 50; //обозначаем глобальные переменные для показаний датчика влажности воздуха
+int T_VENT; // обозначение времени проветривания
 
-void light() {
-  if (regime == day) {
-    if (analogRead(LIGHT_SENSOR) < 100) digitalWrite(LIGHT, HIGH);
+
+void start_light() {
+  if (tekushiy_regim == day) {
+    if (analogRead(SVET_SENSOR) < 90) digitalWrite(LIGHT, HIGH);
     else digitalWrite(LIGHT, LOW);
   } else digitalWrite(LIGHT, LOW);
 }
 
-void vent() {
-  boolean vent_on = LOW;                       // переменная тригер включения вентилятора, для цикла for ниже
-  for (int i = 2; i <= 12; i = i + 2) {  // проветривать по расписанию, каждые 2 часа, цикл for реализует перебор времен, в которые может быть проветривание
-    if (((i * 60 * 60) - (15 * 60)) < TIME < (i * 60 * 60)) {
+void start_vent() {
+  boolean vent_on;   // переменная включения вентилятора
+  // цикл проветривания
+  int i;
+  for (i = 2; i <= 12; i = i + 2) 
+    // проветривание по расписанию: 2 часа ждет, 15 минут работает вентилятор
+    { 
+    if (((i * 60 * 60) - (T_VENT * 60)) < TIME < (i * 60 * 60)) {
       vent_on = HIGH;
+      digitalWrite(VENT, vent_on);
+    }
+    else {
+      vent_on = LOW;
+      digitalWrite(VENT, vent_on);
     }
   }
-  digitalWrite(VENT, vent_on);
 }
 
-void heat() {
-  dht.read();// включать обогрев и вентилятор если холодно по датчику температуры воздуха, включать только вентилятор, если жарко
+// нагрев воздуха
+void start_heat() {
+  dht.read(); // включать обогрев и вентилятор, если холодно (по датчику температуры воздуха), включать только вентилятор, если жарко
   if (CURRENT_TEMPERATURE < 25) {
-    digitalWrite(VENT, 1);
-    digitalWrite(HEAT, 1);
+    digitalWrite(VENT, HIGH);
+    digitalWrite(HEAT, HIGH);
   }
   if (CURRENT_TEMPERATURE > 35) {
-    digitalWrite(VENT, 1);
-    digitalWrite(HEAT, 0);
+    digitalWrite(VENT, HIGH);
+    digitalWrite(HEAT, LOW);
   } else {
-    digitalWrite(VENT, 0);
-    digitalWrite(HEAT, 0);
+    digitalWrite(VENT, LOW);
+    digitalWrite(HEAT, LOW);
   }
 }
 
-enum Regime_pump {
-  irrigation,
-  hold,
-  humidity_ok
-};
-Regime_pump regime_pump = humidity_ok;
+enum Regime_pump {vlazn_norm, poliv, hold, vent};
+enum Regime_pump regim_pump = vlazn_norm;
+
+void (*teplitsa_action[])(void)={&regim_day, &regim_night};
 
 
-
-void pump() {
-  static int dead_time = 60;
-  static int watering_time = 15; 
-  if (regime_pump == humidity_ok) {
-    int dead_time = 60;
-    int watering_time = 15;
-    if (analogRead(HUMIDITY_SENSOR) < REQUIRED_HUMIDITY) {
-      regime_pump = irrigation;
+void start_pump() {
+  int hold_time = 60; // время, когда ничего не происходит
+  int watering_time = 15; // время поива
+  int vent_time = 15; // время вентияции
+  if (regim_pump == vlazn_norm) {
+    if (analogRead(VLAZN_SENSOR) < MIN_VLAZN) { // влажность ниже нормы
+      regim_pump = poliv;
+    }
+    else if (analogRead(VLAZN_SENSOR) > MAX_VLAZN){ // важность вые нормы
+      regim_pump = hold;
     }
   }
-  if (regime_pump == irrigation) {
-    if (watering_time > 0) {
+  if (regim_pump == poliv) { //состояние полива
+    for (int i = watering_time; i > 0; i--){
       digitalWrite(PUMP, HIGH);
-      watering_time--;
-    } else {
-      digitalWrite(PUMP, LOW);
-      regime_pump = hold;
-      watering_time = 15;
+      delay (1);
     }
+    digitalWrite(PUMP, LOW);
+    regim_pump = hold;
   }
-  if (regime_pump == hold) {
-    if (dead_time > 0) {
-      dead_time -= 1;
-    } else {
-      dead_time = 60;
-      regime_pump == humidity_ok;
+  if (regim_pump == hold) { //состояние ожидания
+    for (int i = hold_time; i > 0; i--){
+      delay(1);
     }
+    regim_pump == vlazn_norm;
   }
 }
 
 
-void regime_day() {
-  light();
-  vent();
-  heat();
-  pump();
+void regim_day() {
+  start_light();
+  start_vent();
+  start_heat();
+  start_pump();
 }
 
-void regime_night() {
-  light();
-  vent();
-  heat();
-  pump();
+void regim_night() {
+  start_light();
+  start_vent();
+  start_heat();
+  start_pump();
 }
 
 
 void loop() {
-  delay(1000);
-  TIME++;
-  if (TIME >= 24 * 60 * 60) TIME = 0;
-  regime = TIME < 16 * 60 * 60 ? day : night;
-  if (regime == day) regime_day();
-  if (regime == night) regime_night();
+  delay(1);
+  TIME = TIME + 1;
+  if (TIME >= 24 * 60 * 60){
+    TIME = 0;
+    tekushiy_regim = day;
+  }
+  if (TIME > 16*60*60){
+    tekushiy_regim = night;
+  }
+  teplitsa_action[tekushiy_regim]();
+  
 }

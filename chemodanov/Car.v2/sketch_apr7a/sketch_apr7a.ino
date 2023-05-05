@@ -58,7 +58,6 @@ bool ButtonState(int pin) {//функция нажатия клавиши с о�
   bool btnState = !digitalRead(pin);
   if (btnState && !flag) flag = true;  // обработчик нажатия
   if (!btnState && flag) flag = false; // обработчик отпускания
-  BuzzerVoice(DELAY_SWITCH);
   return flag;
 }
 
@@ -130,61 +129,113 @@ void BotState() {//_state
   int sensor;
   float motor_right, motor_left;
   bool state_b = false;
-  if ( ButtonState(BUTTON) && _state != 0) _state = 0;
-  if ( ButtonState(BUTTON) && _state != 1) _state = 1;
+  if ( ButtonState(BUTTON) && _state != 0) {
+    _state = 0;
+    BuzzerVoice(DELAY_SWITCH);
+  }
+  if ( ButtonState(BUTTON) && _state != 1) {
+    _state = 1;
+    BuzzerVoice(DELAY_SWITCH);
+  }
   if ((_state == 1 || _state == 3) && LineSensorRead(SENSOR_LEFT) < SENSOR_DATA && LineSensorRead(SENSOR_RIGHT) < SENSOR_DATA) _state = 2;
   if ((_state == 1 || _state == 2)) _state = 3;
   switch (_state) {//кейс состояний
     case 0:
       Stop();
-      //Serial.print(0);
+      Serial.print(0);
+      Serial.println();
       break;
     case 1:
-      if (LineSensorRead(SENSOR_LEFT) < SENSOR_DATA && LineSensorRead(SENSOR_RIGHT) < SENSOR_DATA) _state = 2;
-      if (LineSensorRead(SENSOR_LEFT) > SENSOR_DATA || LineSensorRead(SENSOR_RIGHT) > SENSOR_DATA) _state = 3;
-      //Serial.print(1);
+      if (LineSensorRead(SENSOR_LEFT) < SENSOR_DATA+100 && LineSensorRead(SENSOR_RIGHT) < SENSOR_DATA+100) _state = 2;
+      if (LineSensorRead(SENSOR_LEFT) > SENSOR_DATA+100 || LineSensorRead(SENSOR_RIGHT) > SENSOR_DATA+100) _state = 3;
+      Serial.print(1);
+      Serial.println();
       break;
     case 2:
-      MoveEspiral(_state, motor_right, motor_left, time);
-      //Serial.print(2);
+      MoveEspiral(_state, motor_right, motor_left, time);      
+      Serial.print(2);
+      Serial.println();
       break;
     case 3:
-      MoveBot(sensor, motor_right, motor_left, _state);
-      //Serial.print(3);
+      if (LineSensorRead(SENSOR_LEFT) < SENSOR_DATA+100 && LineSensorRead(SENSOR_RIGHT) < SENSOR_DATA+100) {
+        _state = 2;
+        MoveEspiral(_state, motor_right, motor_left, time);   
+      } else {
+        MoveBot(sensor, motor_right, motor_left, _state);
+        Serial.print(LineSensorRead(SENSOR_LEFT));
+        Serial.print(',');
+        Serial.print(LineSensorRead(SENSOR_RIGHT));
+        Serial.print(',');
+        Serial.print(3);
+        Serial.println();
+      }
+      //MoveBot(sensor, motor_right, motor_left, _state);
       break;
     default :
       break;
   }
+  
+  //Serial.print(_state);
+  //Serial.println();
+  
+  //Print(motor_right,motor_left,LineSensorRead(SENSOR_RIGHT),LineSensorRead(SENSOR_LEFT));
 }
 
-void MoveEspiral(int& state, float& power_r, float& power_l, int& time) {
+float Inc (int LineL, int LineR)
+{
+  if(LineL<LESS_WHITE && LineR<LESS_WHITE)
+  {
+    return 1;
+  }
+  else
+  {
+    return 0;
+  }
+}
+
+void MoveEspiral(int& _state, float& power_r, float& power_l, int& time) {
   float r = power_r;
   float l = power_l;
   if (r == 0 && l == 0) {
     r = rand() % MAX_RANGE_RANDOM;
     l = rand() % MAX_RANGE_RANDOM;
   }
-  if (LineSensorRead(SENSOR_LEFT) > LESS_WHITE || LineSensorRead(SENSOR_RIGHT) > LESS_WHITE) state = 3;
-  if (MoreNumber(r)) r++;
-  if (MoreNumber(l)) l++;
+  if (LineSensorRead(SENSOR_LEFT) > LESS_WHITE || LineSensorRead(SENSOR_RIGHT) > LESS_WHITE) _state = 3;
+  //if (MoreNumber(r)) 10*r++;
+  //if (MoreNumber(l)) 10*l++;
+  if (r > l) {
+    l = MAX_SPEED;
+  r -= 10;
+    if (r < 0) r = 0;
+  }
+  if (l > r) {
+    r = MAX_SPEED;
+    l -= 10;
+    if (r < 0) r = 0;
+  }
   if (MoreNumber(r) && MoreNumber(l)) time++;
-  else if (MoreNumber(r) && MoreNumber(l) && time == 4) state = 0;
+  else if (MoreNumber(r) && MoreNumber(l) && time == 4) _state = 0;
+  Motors(r, l);
 }
 
-void MoveBot(int& sensor, float& motor_right, float& motor_left, int& state, bool state_b) {
+void MoveBot(int& sensor, float& motor_right, float& motor_left, int& _state) {
   sensor = LineSensorRead(SENSOR_LEFT) - LineSensorRead(SENSOR_RIGHT);
   err = sensor - GRAY;//вычисляемая ошибка для I
-  motor_right = CHENGES_SPEED - K1 * sensor - I;//расчет скорости для правой пары колес
-  motor_left = CHENGES_SPEED + K1 * sensor + I;//расчет скорости для левой пары колес
+  motor_right = CHENGES_SPEED - (K1/*+Inc(LineSensorRead(A1),LineSensorRead(A2))*/) * sensor - I;//расчет скорости для правой пары колес
+  motor_left = CHENGES_SPEED + (K1/*+Inc(LineSensorRead(A1),LineSensorRead(A2))*/) * sensor + I;//расчет скорости для левой пары колес
   Motors(motor_right, motor_left);
   Integrator(I, err, prevEr);
   prevEr = err - I;//сохраняем ошибку - I
-  if (ButtonState(BUTTON)) { 
+  /*if (ButtonState(BUTTON)) { 
     state = 0;
-    state_b = true;
-  }
-  if (LineSensorRead(SENSOR_LEFT) < LESS_WHITE && LineSensorRead(SENSOR_RIGHT) < LESS_WHITE) state = 2;
+  }*/
+  if (LineSensorRead(SENSOR_LEFT) < LESS_WHITE && LineSensorRead(SENSOR_RIGHT) < LESS_WHITE) _state = 2;
   //Print(motor_right,motor_left,LineSensorRead(SENSOR_RIGHT),LineSensorRead(SENSOR_LEFT));
+  
+  //Serial.print(motor_right);
+  //Serial.print(',');
+  //Serial.print(motor_left);
+  //Serial.println();
 }
 
 void Integrator(int& I, int err, int prevEr) {//интегртор

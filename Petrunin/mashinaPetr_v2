@@ -1,0 +1,153 @@
+#define LIGHT_SENSOR_LEFT A0 //прописываем подключения портов, чтоб не запоминать что куда подключено
+#define LIGHT_SENSOR_RIGHT A1
+#define M1_DIR 4
+#define M1_PWM 5
+#define M2_DIR 7
+#define M2_PWM 6
+
+enum State {waiting_button, follow_line, search_line};  //Вводим переменную состояния 0-"Ожидание нажатия кнопки", 1-"Движение по линии", 2-"Поиск линии"
+State STATE = waiting_button;
+
+enum Last_sensor {null, last_left, last_right}; //Вводим переменную состояния последнего датчика сошедшего с линии 0-"Последнего датчика нет", 1-"Последний левый", 2-"Последний правый"
+Last_sensor LAST = null;
+
+int AVG_SPEED = 190;   //вводим переменную, отвечающую за среднее значение скорости движения тележки (скорость движения, если оба датчика стоят на белом)
+int K_P = 3;           //вводим переменную, коэффициента P-регулятора
+int SPIRAL_SPEED = 0;  //вводим переменную для движения по спирали
+int LIGHT_LEFT = analogRead(LIGHT_SENSOR_LEFT);                    //считываем показания левого датчика в переменную
+int LIGHT_RIGHT = analogRead(LIGHT_SENSOR_RIGHT);                  //считываем показания правого датчика в переменную
+int LIGHT_LEFT_CORRECTED = map (LIGHT_LEFT, 553, 924, 100, 0);     //преобразуем значения с левого датчика в диапазон от 0 до 100 (0-черный, 100-белый), значения 357 и 862 соответсвуют показаниям левого датчика на черном и белом соответственно
+int LIGHT_RIGHT_CORRECTED = map (LIGHT_RIGHT, 440, 899, 100, 0);   //преобразуем значения с правого датчика в диапазон от 0 до 100 (0-черный, 100-белый), значения 541 и 912 соответсвуют показаниям левого датчика на черном и белом соответственно
+int CORRECTION_LEFT = LIGHT_LEFT_CORRECTED * K_P; //переменная корректировки по левому датчику
+int CORRECTION_RIGHT = LIGHT_RIGHT_CORRECTED * K_P; //переменная корректировки по правому датчику
+
+void setup()
+{
+  Serial.begin(9600); //объявляем скорость работы сериал порта
+  pinMode(12, INPUT_PULLUP);//объявим порт кнопки с pullup для устранения возможного дребезга
+  init_motors(); //запускаем подпрограмму, объявляющую порты двигателя
+}
+
+void init_motors() //объявляем порты, отвечающие за управление двигателями
+{
+  pinMode(M1_DIR, OUTPUT);
+  pinMode(M1_PWM, OUTPUT);
+  pinMode(M2_DIR, OUTPUT);
+  pinMode(M2_PWM, OUTPUT);
+}
+
+void motors(int speed_1, int speed_2)//подпрограмма управления двигателями
+{
+  if (speed_1 > 255) speed_1 = 255; //задаем ограничения по входным скоростям (ограничение ШИМ 255 = 100% скорость вращения двигателя)
+  if (speed_1 < -255) speed_1 = -255;
+  if (speed_2 > 255) speed_2 = 255;
+  if (speed_2 < -255) speed_2 = -255;
+
+  if (speed_1 > 0) //если входное значение больше 0, значит двигатель надо вращать вперед, соответсвтенно на дискретный порт подается 1 (вперед), на аналог значение скорости вращения.
+  {
+    digitalWrite(M1_DIR, 1);
+    analogWrite(M1_PWM, speed_1);
+  }
+  else //если входное значение меньше 0, значит двигатель надо вращать назад, соответсвтенно на дискретный порт подается 0 (назад), на аналог значение скорости вращения по модулю.
+  {
+    digitalWrite(M1_DIR, 0);
+    analogWrite(M1_PWM, -speed_1);
+  }
+  if (speed_2 > 0) //аналогичное управление для второго мотора
+  {
+    digitalWrite(M2_DIR, 1);
+    analogWrite(M2_PWM, speed_2);
+  }
+  else
+  {
+    digitalWrite(M2_DIR, 0);
+    analogWrite(M2_PWM, -speed_2);
+  }
+}
+
+void search (int LIGHT_LEFT_CORRECTED, int LIGHT_RIGHT_CORRECTED) { //программа поиска линии
+  if (LAST == null) { //линия где-то прямо
+    if (LIGHT_LEFT_CORRECTED > 50) { 
+      motors(100, 100);
+    }
+    else {
+      STATE = follow_line;
+    }
+  }
+  if (LAST == last_right) {// линия где-то справа, крутим спираль вправо, пока левый датчик не уидит линию
+    if (LIGHT_LEFT_CORRECTED > 50) {
+      motors(-50 + SPIRAL_SPEED, 150 + SPIRAL_SPEED);
+      delay(150);
+      SPIRAL_SPEED += 1;
+    }
+    else {
+      STATE = follow_line;
+      SPIRAL_SPEED = 0;
+    }
+  }
+  if (LAST == last_left) {// линия где-то слева, крутим спираль влево, пока правый датчик не увидит линию 
+    if (LIGHT_RIGHT_CORRECTED > 50) {
+      motors(150 + SPIRAL_SPEED, -50 + SPIRAL_SPEED);
+      delay(150);
+      SPIRAL_SPEED += 1;
+    }
+    else {
+      STATE = follow_line;
+      SPIRAL_SPEED = 0;
+    }
+  }
+}
+
+void ride_the_line() {           //функция движения по линии
+      if (CORRECTION_LEFT > 100 or CORRECTION_RIGHT > 100) { //если корректировки большие, то низкая средняя скорость
+        AVG_SPEED = 50;
+      }
+      else {             //если корректировки малые, то высокая средняя скорости
+        AVG_SPEED = 200;
+      }
+      motors(AVG_SPEED - CORRECTION_LEFT + CORRECTION_RIGHT, AVG_SPEED + CORRECTION_LEFT - CORRECTION_RIGHT);  //запуск моторов с учетом корректировок для движения по линии
+      if (LIGHT_LEFT_CORRECTED > 50 and LIGHT_RIGHT_CORRECTED < 10) {        //запись стороны (в переменную LAST), где находится линия относительно центра работа, чтоб в случае её утери знать в какую сторону искать.
+        LAST = last_right;
+      }
+      else if (LIGHT_RIGHT_CORRECTED > 50 and LIGHT_LEFT_CORRECTED < 10) {
+        LAST = last_left;
+      }
+      else if (LIGHT_LEFT_CORRECTED > 80 and LIGHT_RIGHT_CORRECTED > 80) { //оба датчика на белом, значит слетели с линии, запуск состояния поиска
+        STATE = search_line;
+      }
+  }
+
+void loop() {
+  int LIGHT_LEFT = analogRead(LIGHT_SENSOR_LEFT);                    //считываем показания левого датчика в переменную
+  int LIGHT_RIGHT = analogRead(LIGHT_SENSOR_RIGHT);                  //считываем показания правого датчика в переменную
+  int LIGHT_LEFT_CORRECTED = map (LIGHT_LEFT, 553, 924, 100, 0);     //преобразуем значения с левого датчика в диапазон от 0 до 100 (0-черный, 100-белый), значения 357 и 862 соответсвуют показаниям левого датчика на черном и белом соответственно
+  int LIGHT_RIGHT_CORRECTED = map (LIGHT_RIGHT, 440, 899, 100, 0);   //преобразуем значения с правого датчика в диапазон от 0 до 100 (0-черный, 100-белый), значения 541 и 912 соответсвуют показаниям левого датчика на черном и белом соответственно
+  int CORRECTION_LEFT = LIGHT_LEFT_CORRECTED * K_P; //переменная корректировки по левому датчику
+  int CORRECTION_RIGHT = LIGHT_RIGHT_CORRECTED * K_P; //переменная корректировки по правому датчику
+
+  int button = digitalRead(12);  //считываем показания с кнопки
+  Serial.println(String(STATE) + ' ' + String(button) + ' ' + String(LIGHT_LEFT) + ' ' + String(LIGHT_RIGHT)); //выводим на экран показания кнопки, переменной состояния, показания левого датчика и правого датчика (для калибровки датчиков и проверки работоспособности кнопки)
+  
+  if (button == 0 & STATE == waiting_button) //переключение состояния из ожидания в состояние движения по нажатию кнопки
+  {
+    STATE = follow_line;
+    delay(200);
+  }
+  else if (SPIRAL_SPEED > 150 or (button == 0 & (STATE == follow_line or STATE == search_line))) //переключение состояния из движения в состояние ожидания и сброс всех переменных
+  {
+    STATE = waiting_button;
+    LAST = null;
+    SPIRAL_SPEED = 0;
+    delay(200);
+  }
+
+  if (STATE == follow_line) { //начало движения
+    ride_the_line();
+  }
+  if (STATE == waiting_button) { //нулевое состояние - моторы стоп
+    motors(0, 0);
+  }
+  if (STATE == search_line) { //состояние поиска утерянной линии
+    search (LIGHT_LEFT_CORRECTED, LIGHT_RIGHT_CORRECTED);
+  }
+}

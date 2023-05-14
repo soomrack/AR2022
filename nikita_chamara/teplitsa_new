@@ -8,7 +8,9 @@ DHT dht(2, DHT21); //подключение в порт D2
 #define VLAZN_SOIL_SENSOR A1 // датчик влажности почвы
 #define VLAZN_AIR_SENSOR A2 // датчик влажности
 
-int SECONDS = 0;  // задание начального значения времени с начала дня. День длится 16 часов (16*60*60 секунд), ночь - 8 часов (8*60*60 секунд)
+int SECONDS = 0;  // задание начального значения времени с начала дня. 
+// День длится 16 часов (16*60*60 секунд), ночь - 8 часов (8*60*60 секунд)
+
 
 // влажность почвы
 struct soil_vlazn 
@@ -18,14 +20,21 @@ struct soil_vlazn
 } SOIL_VLAZN;
 SOIL_VLAZN = {50, 30};
 
-// влажность воздуха
-int max_air_vlazn = 70;
-int min_air_vlazn = 50;
+
+// влажность возздуха
+struct air_vlazn 
+{
+    int max_air_vlazn;
+    int min_air_vlazn;
+} AIR_VLAZN;
+AIR_VLAZN = {70, 50};
+
 
 // оптимальная температура для роста растений
 int CURRENT_TEMP = 20;
 //обозначаем глобальные переменные для показаний датчика влажности воздуха
 int CURRENT_AIR_VLAZN = 50;
+
 
 // счетчик времени
 void timer() 
@@ -35,6 +44,7 @@ void timer()
     delay(1000);  // 01 second
 }
 
+
 // структура, описывающая работу вентилятора
 struct Cooler 
 {
@@ -42,7 +52,9 @@ struct Cooler
     bool status_air_vlazn; // проветривание
     bool status_heat; // обогрев
 } COOLER = {False, False, False};
-// программа работы ветилятора
+
+
+// программа работы вентилятора
 void cooler() 
 {
     if( COOLER.status_vent
@@ -54,6 +66,7 @@ void cooler()
      else digitalWrite(VENT, 0);  // выключить вентилятор
 }
 
+
 //программа включения вентилятора в зависимости от текущего времени (проветривание каждый 3-ий час) и состояния влажности воздуха
 void periodic_ventilation() 
 {  
@@ -63,6 +76,7 @@ void periodic_ventilation()
   if(14*60*60 < SECONDS & SECONDS < 15*60*60 & CURRENT_AIR_VLAZN > min_air_vlazn) { COOLER.status_vent = true; return;}
   COOLER.status_vent = false;
 }
+
 
 // программа включения нагревателя и вентилятора в зависимости от температуры
 void control_temperature()
@@ -86,7 +100,76 @@ void control_temperature()
 }
 
 
+// программа полива растений
+void poliv() 
+{
+    int max_poliv_time = 20;  // максимальное время полива растений 20 секунд
+    int min_wait_time = 40;  // время между поливами, за которое ожидаем пропитывание почвы водой
+    static int current_poliv_time = 0; // начальное значение времени полива
+    static int current_wait_time = 0; // начальное значение времени ожидания
+    
+    digitalWrite(PUMP, 0); // насос выключен
+    if (current_poliv_time < max_poliv_time)
+    {
+     digitalWrite(PUMP, 1);
+     if (current_wait_time > min_wait_time)
+      {
+       current_wait_time = 0; 
+       current_poliv_time = 0;
+      }
+     else current_wait_time = current_wait_time + 1;
+    }
+    else current_poliv_time = current_poliv_time + 1;
+}
 
 
+// программа контроля влажности вохдуха
+void control_vlazn_air() 
+{  
+    int vlazn_air = analogRead(VLAZN_AIR_SENSOR);
+    if(vlazn_air > AIR_VLAZN.max_air_vlazn) COOLER.status_air_vlazn = true; else COOLER.status_air_vlazn = false;
+}
 
 
+// программа контроля влажности почвы
+void control_vlazn_soil() 
+{  
+    int vlazn_soil = analogRead(VLAZN_SOIL_SENSOR);
+    if(vlazn_soil < SOIL_VLAZN.min_soil_vlazn) poliv();
+}
+
+
+// программа включения света
+void light() 
+{
+  if (SECONDS > 16*60*60 & SECONDS < 20*60*60) 
+  {
+    if (analogRead(SVET_SENSOR) < 90) digitalWrite(LIGHT, 1);
+    else digitalWrite(LIGHT, 0);
+  } 
+  else digitalWrite(LIGHT, 0);
+}
+
+
+void setup() 
+{
+  pinMode(HEAT, OUTPUT);
+  pinMode(VENT, OUTPUT);
+  pinMode(LIGHT, OUTPUT);
+  pinMode(PUMP, OUTPUT);
+  Serial.begin(9600);
+  delay(2000);
+}
+
+// основная программа вызова состояний
+void loop() 
+{
+    timer();
+    cooler();
+    periodic_ventilation();
+    control_temperature();
+    poliv();
+    control_vlazn_air();
+    control_control_vlazn_soil();
+    light();  
+}

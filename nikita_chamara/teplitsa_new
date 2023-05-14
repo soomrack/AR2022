@@ -6,4 +6,4 @@ DHT dht(2, DHT21); //датчик темп. и влажности подключ
 #define VENT 7 //вентилятор
 #define SVET_SENSOR A0 //датчик освещенности
 #define VLAZN_SOIL_SENSOR A1 // датчик влажности почвы
-#define VLAZN_AIR_SENSOR A1 // датчик влажности
+#define VLAZN_AIR_SENSOR A2 // датчик влажности

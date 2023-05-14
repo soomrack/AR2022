@@ -1,5 +1,5 @@
 #include <TroykaDHT.h>
-DHT dht(2, DHT21); //датчик темп. и влажности подключен в порт D2
+DHT dht(2, DHT21); //подключение в порт D2
 #define HEAT 4 // нагреватель
 #define LIGHT 6 // освещение
 #define PUMP 5 //насос
@@ -7,3 +7,86 @@ DHT dht(2, DHT21); //датчик темп. и влажности подключ
 #define SVET_SENSOR A0 //датчик освещенности
 #define VLAZN_SOIL_SENSOR A1 // датчик влажности почвы
 #define VLAZN_AIR_SENSOR A2 // датчик влажности
+
+int SECONDS = 0;  // задание начального значения времени с начала дня. День длится 16 часов (16*60*60 секунд), ночь - 8 часов (8*60*60 секунд)
+
+// влажность почвы
+struct soil_vlazn 
+{
+    int max_soil_vlazn;
+    int min_soil_vlazn;
+} SOIL_VLAZN;
+SOIL_VLAZN = {50, 30};
+
+// влажность воздуха
+int max_air_vlazn = 70;
+int min_air_vlazn = 50;
+
+// оптимальная температура для роста растений
+int CURRENT_TEMP = 20;
+//обозначаем глобальные переменные для показаний датчика влажности воздуха
+int CURRENT_AIR_VLAZN = 50;
+
+// счетчик времени
+void timer() 
+{
+    SECONDS = SECONDS + 1;
+    if(SECONDS >= 60 * 60 * 24) SECONDS = 0;
+    delay(1000);  // 01 second
+}
+
+// структура, описывающая работу вентилятора
+struct Cooler 
+{
+    bool status_vent; // обычное сосояние вентилятора
+    bool status_air_vlazn; // проветривание
+    bool status_heat; // обогрев
+} COOLER = {False, False, False};
+// программа работы ветилятора
+void cooler() 
+{
+    if( COOLER.status_vent
+        or COOLER.status_air_vlazn
+        or COOLER.status_heat ) 
+        {
+        digitalWrite(VENT, 1);  // включить вентилятор
+        } 
+     else digitalWrite(VENT, 0);  // выключить вентилятор
+}
+
+//программа включения вентилятора в зависимости от текущего времени (проветривание каждый 3-ий час) и состояния влажности воздуха
+void periodic_ventilation() 
+{  
+  if(2*60*60 < SECONDS & SECONDS < 3*60*60 & CURRENT_AIR_VLAZN > min_air_vlazn) { COOLER.status_vent = true; return;}
+  if(6*60*60 < SECONDS & SECONDS < 7*60*60 & CURRENT_AIR_VLAZN > min_air_vlazn) { COOLER.status_vent = true; return;}
+  if(10*60*60 < SECONDS & SECONDS < 11*60*60 & CURRENT_AIR_VLAZN > min_air_vlazn) { COOLER.status_vent = true; return;}
+  if(14*60*60 < SECONDS & SECONDS < 15*60*60 & CURRENT_AIR_VLAZN > min_air_vlazn) { COOLER.status_vent = true; return;}
+  COOLER.status_vent = false;
+}
+
+// программа включения нагревателя и вентилятора в зависимости от температуры
+void control_temperature()
+{
+  dht.read();
+  if (CURRENT_TEMP < 20) // включение нагревателя и вентилятора, если температура ниже 20*C
+  {
+    COOLER.status_vent = true;
+    digitalWrite(HEAT, 1);
+  }
+  if (CURRENT_TEMP > 35) // включение вентилятора, если температура выше 35*C
+  {
+    COOLER.status_heat = true;    
+    digitalWrite(HEAT, 0);
+  } 
+  else 
+  {
+    COOLER.status_heat = false;  // ничего не включается, если температура выше 20*С и ниже 35*C
+    digitalWrite(HEAT, 0);
+  }
+}
+
+
+
+
+
+

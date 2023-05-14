@@ -1,1 +1,10 @@
+#include <TroykaDHT.h>
+DHT dht(2, DHT21); //датчик темп. и влажности подключен в порт D2
+#define AIR 7 // вентилятор
+#define HEAT 4 // нагреватель
+#define LIGHT 6 // освещение
+#define PUMP 5 //насос
+#define VENT 7 //вентилятор
+#define SVET_SENSOR A0 //датчик освещенности
+#define VLAZN_SENSOR A1 // датчик влажности
 

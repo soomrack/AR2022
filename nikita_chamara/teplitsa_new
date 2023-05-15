@@ -17,8 +17,8 @@ struct soil_vlazn
 {
     int max_soil_vlazn;
     int min_soil_vlazn;
-} SOIL_VLAZN;
-SOIL_VLAZN = {50, 30};
+};
+soil_vlazn SOIL_VLAZN{50, 30};
 
 
 // влажность возздуха
@@ -26,8 +26,8 @@ struct air_vlazn
 {
     int max_air_vlazn;
     int min_air_vlazn;
-} AIR_VLAZN;
-AIR_VLAZN = {70, 50};
+};
+air_vlazn AIR_VLAZN{70, 50};
 
 
 // оптимальная температура для роста растений
@@ -51,7 +51,8 @@ struct Cooler
     bool status_vent; // обычное сосояние вентилятора
     bool status_air_vlazn; // проветривание
     bool status_heat; // обогрев
-} COOLER = {False, False, False};
+};
+Cooler COOLER{false, false, false};
 
 
 // программа работы вентилятора
@@ -70,10 +71,22 @@ void cooler()
 //программа включения вентилятора в зависимости от текущего времени (проветривание каждый 3-ий час) и состояния влажности воздуха
 void periodic_ventilation() 
 {  
-  if(2*60*60 < SECONDS & SECONDS < 3*60*60 & CURRENT_AIR_VLAZN > min_air_vlazn) { COOLER.status_vent = true; return;}
-  if(6*60*60 < SECONDS & SECONDS < 7*60*60 & CURRENT_AIR_VLAZN > min_air_vlazn) { COOLER.status_vent = true; return;}
-  if(10*60*60 < SECONDS & SECONDS < 11*60*60 & CURRENT_AIR_VLAZN > min_air_vlazn) { COOLER.status_vent = true; return;}
-  if(14*60*60 < SECONDS & SECONDS < 15*60*60 & CURRENT_AIR_VLAZN > min_air_vlazn) { COOLER.status_vent = true; return;}
+  if(2*60*60 < SECONDS & SECONDS < 3*60*60 & CURRENT_AIR_VLAZN > AIR_VLAZN.min_air_vlazn) 
+  { 
+    COOLER.status_vent = true; return;
+  }
+  if(6*60*60 < SECONDS & SECONDS < 7*60*60 & CURRENT_AIR_VLAZN > AIR_VLAZN.min_air_vlazn) 
+  { 
+  COOLER.status_vent = true; return;
+  }
+  if(10*60*60 < SECONDS & SECONDS < 11*60*60 & CURRENT_AIR_VLAZN > AIR_VLAZN.min_air_vlazn) 
+  {
+  COOLER.status_vent = true; return;
+  }
+  if(14*60*60 < SECONDS & SECONDS < 15*60*60 & CURRENT_AIR_VLAZN > AIR_VLAZN.min_air_vlazn)
+  {
+  COOLER.status_vent = true; return;
+  }
   COOLER.status_vent = false;
 }
 
@@ -103,16 +116,16 @@ void control_temperature()
 // программа полива растений
 void poliv() 
 {
-    int max_poliv_time = 20;  // максимальное время полива растений 20 секунд
-    int min_wait_time = 40;  // время между поливами, за которое ожидаем пропитывание почвы водой
+    int poliv_time = 20;  // максимальное время полива растений 20 секунд
+    int wait_time = 40;  // время между поливами, за которое ожидаем пропитывание почвы водой
     static int current_poliv_time = 0; // начальное значение времени полива
     static int current_wait_time = 0; // начальное значение времени ожидания
     
     digitalWrite(PUMP, 0); // насос выключен
-    if (current_poliv_time < max_poliv_time)
+    if (current_poliv_time < poliv_time)
     {
      digitalWrite(PUMP, 1);
-     if (current_wait_time > min_wait_time)
+     if (current_wait_time > wait_time)
       {
        current_wait_time = 0; 
        current_poliv_time = 0;
@@ -170,6 +183,6 @@ void loop()
     control_temperature();
     poliv();
     control_vlazn_air();
-    control_control_vlazn_soil();
+    control_vlazn_soil();
     light();  
 }

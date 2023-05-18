@@ -1,1 +1,145 @@
-1
+#include <TroykaDHT.h>
+DHT dht(2, DHT21);  //датчик темп. и влаги подключен в порт D2
+#define HEAT 4
+#define LIGHT 5
+#define PUMP 6
+#define VENT 7
+#define LIGHT_SENSOR A0
+#define AIR_HUMIDITY_SENSOR A1  // ввести второй датчик влажности почвы
+#define DIRT_HUMIDITY_SENSOR A2
+
+int DIRT_HUMIDITY_MIN = 50;  // Влажность почвы, %
+int DIRT_HUMIDITY_MAX = 70;
+int AIR_HUMIDITY_MIN = 50;  // Влажность воздуха, %
+int AIR_HUMIDITY_MAX = 70;
+
+int SECONDS = 0;  //секунды с начала дня, 16*60*60 - начало ночи, ночь 8 часов, с 16 до 24
+//обозначаем глобальные переменные для показаний датчика темп. и влажности воздуха
+
+int TEMPERATURE_CURRENT = 20;  // Текущая температура, град C
+int AIR_HUMIDITY_CURRENT = analogRead(AIR_HUMIDITY_SENSOR);
+
+enum Regime {DAY,NIGHT};// режимы капсом
+enum Regime CURR_REGIME = DAY; 
+
+enum Regime_pump {humidity_ok, irrigation, hold};
+enum Regime_pump regime_pump = humidity_ok;
+
+struct COOLER {
+  bool status_vent;
+  bool status_air_humidity;
+  bool status_heat;
+  }
+  COOLER = {false,false,false};
+
+
+void timer();
+void light_control();
+void cooler();
+void periodic_ventilation();
+void temperature_control();
+void dirt_humidity_control();
+void irrigate();
+void air_humidity_control();
+void setup();
+
+
+void timer(){
+  SECONDS++;
+  if(SECONDS >= 60 * 60 * 24) SECONDS = 0;
+  if (SECONDS >= 60*60*16) CURR_REGIME = NIGHT;
+  delay(1000);  // 1 секунда пауза
+}
+
+void light_control() {  // Датчик смотрит вверх, лампа смотрит вниз
+  if (CURR_REGIME == DAY) {
+    if (analogRead(LIGHT_SENSOR) < 100) digitalWrite(LIGHT, HIGH);
+    else digitalWrite(LIGHT, LOW);
+  } else digitalWrite(LIGHT, LOW);
+}
+
+void cooler() {
+    if( COOLER.status_vent
+        or COOLER.status_air_humidity
+        or COOLER.status_heat ) {
+        digitalWrite(VENT, HIGH);  // включить
+    } else digitalWrite(VENT, LOW);  // выключить
+}
+
+
+void periodic_ventilation() {  
+  if(2*60*60 < SECONDS & SECONDS < 3*60*60 & AIR_HUMIDITY_CURRENT > AIR_HUMIDITY_MIN) { COOLER.status_vent = true; return;}  // интервал времени проветривания 
+  if(6*60*60 < SECONDS & SECONDS < 7*60*60 & AIR_HUMIDITY_CURRENT > AIR_HUMIDITY_MIN) { COOLER.status_vent = true; return;}
+  if(10*60*60 < SECONDS & SECONDS < 11*60*60 & AIR_HUMIDITY_CURRENT > AIR_HUMIDITY_MIN) { COOLER.status_vent = true; return;}
+  if(14*60*60 < SECONDS & SECONDS < 15*60*60 & AIR_HUMIDITY_CURRENT > AIR_HUMIDITY_MIN) { COOLER.status_vent = true; return;}
+  COOLER.status_vent = false;
+}
+
+
+
+
+void temperature_control(){  // TODO
+  dht.read();
+  if (TEMPERATURE_CURRENT < 15) { // если t<15 град, включается обогреватель 
+    digitalWrite(HEAT, HIGH);
+  }
+  if (TEMPERATURE_CURRENT > 35) {  // если t>35 град, то включается кулер, обогреватель выключается
+    COOLER.status_heat = true;    
+    digitalWrite(HEAT, LOW);
+  } else {
+    COOLER.status_heat = false;  // если 15<t<35 град, то кулер и обогреватель выключены
+    digitalWrite(HEAT, LOW);
+  }
+}
+
+
+void irrigate(){  // функция для включения полива
+  int hold_time_min = 60;  // время ожидания между поливами
+  int irrigation_time_max = 10;  // время полива
+  static int hold_time_current = 0;
+  static int irrigation_time_current = 0;
+  digitalWrite(PUMP, HIGH);
+  if (irrigation_time_current > irrigation_time_max){
+    digitalWrite(PUMP, LOW);
+    if (hold_time_current > hold_time_min){
+      hold_time_current = 0;
+      irrigation_time_current = 0;
+    }
+    else hold_time_current++;
+  }
+  else irrigation_time_current++;
+}
+
+
+void dirt_humidity_control(){  
+  int dirt_humidity = analogRead(DIRT_HUMIDITY_SENSOR);
+  if (dirt_humidity < MIN_DIRT_HUMIDITY) irrigate();
+}
+
+
+void air_humidity_control(){  
+  AIR_HUMIDITY_CURRENT = analogRead(AIR_HUMIDITY_SENSOR);
+  if (AIR_HUMIDITY_CURRENT > AIR_HUMIDITY_MAX) COOLER.status_air_humidity = true;
+  else COOLER.status_air_humidity = false;
+}
+
+
+void setup() {
+  pinMode(HEAT, OUTPUT);
+  pinMode(VENT, OUTPUT);
+  pinMode(LIGHT, OUTPUT);
+  pinMode(PUMP, OUTPUT);
+  Serial.begin(9600);
+  delay(2000);
+}
+
+
+void loop() { 
+  timer();
+  periodic_ventilation();
+  temperature_control();
+  dirt_humidity_control();
+  air_humidity_control();
+  light_control();
+  cooler();
+}

@@ -1,0 +1,158 @@
+#define LEFT_SENSOR A0 // объявим порты подключения
+#define RIGHT_SENSOR A1 
+#define M2_DIR 4 // в скобках правый мотор справа, левый мотор слева
+#define M2_PWM 5
+#define M1_DIR 7
+#define M1_PWM 6
+
+
+int STATE = 0; // переменная состояния (0 - робот стоит, 1 - робот начинает движение)
+int AVGSPEED = 100; // переменная, отвечающая за среднее значение скорости движения робота
+int K_P = 4.15; // коэффициент P-регулятора
+int LAST_DETECTED = 0; // переменная, определяющая датчик, который последний раз видел линию (1- левый, 2 - правый)
+int SPIRAL_SPEED = 0; // скорость при движении по спирали
+
+int SENSOR_LEFT = analogRead(LEFT_SENSOR); //считываем показания левого датчика в переменную
+int SENSOR_RIGHT = analogRead(RIGHT_SENSOR); //считываем показания правого датчика в переменную
+int SENSOR_LEFT_CONVERTED = map (SENSOR_LEFT, 533, 917, 100, 0); //преобразуем значения с левого датчика в диапазон от 0 до 100 (0-черный, 100-белый), значения 533 и 917 соответсвуют показаниям левого датчика на черном и белом соответственно
+int SENSOR_RIGHT_CONVERTED = map (SENSOR_RIGHT, 355, 868, 100, 0); //преобразуем значения с правого датчика в диапазон от 0 до 100 (0-черный, 100-белый), значения 355 и 868 соответсвуют показаниям левого датчика на черном и белом соответственно
+int CORRECTION_LEFT = SENSOR_LEFT_CONVERTED * K_P; //переменная корректировки по левому датчику
+int CORRECTION_RIGHT = SENSOR_RIGHT_CONVERTED * K_P; //переменная корректировки по правому датчику
+
+
+void init_motors() // порты для управления двигателями
+{
+  pinMode(M1_DIR, OUTPUT); 
+  pinMode(M1_PWM, OUTPUT);
+  pinMode(M2_DIR, OUTPUT);
+  pinMode(M2_PWM, OUTPUT);
+}
+
+void motors(int speed1, int speed2)//подпрограмма управления двигателями (1 - левый, 2 - правый)
+{
+  if (speed1 > 255) speed1 = 255; // ограничения по входным скоростям (ограничение ШИМ 255 = 100% скорость вращения двигателя), speed_left
+  if (speed1 < -255) speed1 = -255;
+  if (speed2 > 255) speed2 = 255;
+  if (speed2 < -255) speed2 = -255;
+
+  if (speed1 > 0) 
+  {
+    digitalWrite(M1_DIR, 1);
+    analogWrite(M1_PWM, speed1);
+  }
+  else 
+  {
+    digitalWrite(M1_DIR, 0);
+    analogWrite(M1_PWM, -speed1);
+  }
+
+  if (speed2 > 0) //аналогичное управление для второго мотора
+  {
+    digitalWrite(M2_DIR, 1);
+    analogWrite(M2_PWM, speed2);
+  }
+  else
+  {
+    digitalWrite(M2_DIR, 0);
+    analogWrite(M2_PWM, -speed2);
+  }
+}
+
+enum Regime {MODE_WAIT, MODE_KEEP_LINE, MODE_SEARCH_LINE}; // заводим массив с типом данных enum Regime, в который вписываем название режимов
+enum Regime CURR_REGIME = MODE_WAIT; // заводим переменную такого типа рандомного значения
+
+void (*robot_actions[])(void)={&wait, &keep_line, &search_line};//обозначаем функции, запускающиеся в зависимости от режима
+
+void keep_line(){
+    motors(AVGSPEED - CORRECTION_LEFT + CORRECTION_RIGHT, AVGSPEED - CORRECTION_RIGHT + CORRECTION_LEFT); //запуск моторов с учетом корректировок
+    if (SENSOR_LEFT_CONVERTED < 50 and SENSOR_RIGHT_CONVERTED > 50){ // левый датчик на черном
+      LAST_DETECTED = 1;
+    }
+    if (SENSOR_RIGHT_CONVERTED < 50 and SENSOR_LEFT_CONVERTED > 50){ // правый датчик на черном
+      LAST_DETECTED = 2;
+    }
+    if (SENSOR_LEFT_CONVERTED > 50 and SENSOR_RIGHT_CONVERTED > 50){ // условие для потери линии, т.е. оба датчика видят белый цвет
+      CURR_REGIME = MODE_SEARCH_LINE;
+    }
+}
+
+void wait(){
+  motors(0,0);
+}
+
+void entering_line(){
+  if (LAST_DETECTED == 1){
+    motors(100,0);
+    delay(500);
+    motors(0,0);
+    delay(500);
+  }
+  else if (LAST_DETECTED == 2){
+    motors(0,100);
+    delay(500);
+    motors(0,0);
+    delay(500);
+  }
+  
+}
+
+void search_line (int SENSOR_LEFT_CONVERTED, int SENSOR_RIGHT_CONVERTED){ //функция для поиска линии движением по спирали
+  if (LAST_DETECTED == 0){ // Линия не замечена
+    if (SENSOR_LEFT_CONVERTED > 50){
+      CURR_REGIME = MODE_KEEP_LINE;
+    }
+  }
+  if (LAST_DETECTED == 1){ // Левый датчик засек линию,значит она где-то слева, двигаем против часовой стрелки до момента детектирования линии правым датчиком
+    if (SENSOR_RIGHT_CONVERTED < 50){
+      entering_line();
+      CURR_REGIME = MODE_KEEP_LINE;
+      SPIRAL_SPEED = 0;
+    }
+    else {
+      motors(140 + SPIRAL_SPEED, -40 + SPIRAL_SPEED);
+      delay(100);
+      SPIRAL_SPEED += 1;
+    }
+  }
+  if (LAST_DETECTED == 2){ // Правый датчик засек линию,значит она где-то справа, двигаем по часовой стрелки до момента детектирования линии левым датчиком
+    if (SENSOR_LEFT_CONVERTED < 50){
+      entering_line();
+      CURR_REGIME = MODE_KEEP_LINE;
+      SPIRAL_SPEED = 0;
+    }
+    else{
+      motors(-40 + SPIRAL_SPEED, 140 + SPIRAL_SPEED);
+      delay(100);
+      SPIRAL_SPEED += 1;
+    }
+  }
+}
+
+
+void setup()
+{
+  Serial.begin(9600); // скорость работы сериал порта
+  pinMode(12, INPUT_PULLUP);// порт кнопки с pullup для устранения возможного дребезга
+  init_motors(); //запускаем подпрограмму, объявляющую порты двигателя
+}
+
+void loop() {
+  SENSOR_LEFT = analogRead(LEFT_SENSOR); //считываем показания левого датчика в переменную
+  SENSOR_RIGHT = analogRead(RIGHT_SENSOR); //считываем показания правого датчика в переменную
+  SENSOR_LEFT_CONVERTED = map (SENSOR_LEFT, 533, 917, 100, 0); //преобразуем значения с левого датчика в диапазон от 0 до 100 (0-черный, 100-белый), значения 533 и 917 соответсвуют показаниям левого датчика на черном и белом соответственно
+  SENSOR_RIGHT_CONVERTED = map (SENSOR_RIGHT, 355, 868, 100, 0); //преобразуем значения с правого датчика в диапазон от 0 до 100 (0-черный, 100-белый), значения 355 и 868 соответсвуют показаниям левого датчика на черном и белом соответственно
+  CORRECTION_LEFT = SENSOR_LEFT_CONVERTED * K_P; //переменная корректировки по левому датчику
+  CORRECTION_RIGHT = SENSOR_RIGHT_CONVERTED * K_P; //переменная корректировки по правому датчику
+  
+  int button = digitalRead(12); //считываем показания с кнопки
+  if (button == 0 and CURR_REGIME == MODE_WAIT){
+    CURR_REGIME == MODE_KEEP_LINE;
+    delay(300);
+  }
+  else if (button == 0 and CURR_REGIME == MODE_KEEP_LINE){
+    CURR_REGIME = MODE_WAIT;
+    delay(300);
+  }
+  
+  robot_actions[CURR_REGIME]();
+}

@@ -31,32 +31,17 @@ std::string FAN_SIGNAL = " ";
 std::string RELAY_SIGNAL = " ";
 std::string PUMP_SIGNAL = " ";
 
-void OneTimeLoop(int T, int& t) {
-  for (int i = 0; i < T; i++) {
-    delay(10);
-    t++;
-  }
-}
-
-void NightSystem(int& t) {
-  Pump(t);
-  Fan(t);
-}
-
 void StartSystem(int& t) {
   bool state_night = ((t / 100) < 24 && (t / 100) < 8) ? true : false;
   if (!state_night) {
-    ControllSystem(t);
-  } else {
-    NightSystem(t);
+    ControllSystem(t, state_night);
   }
-  t = ResetTime(t);
 }
 
-void ControllSystem (int& t) {
-  Lighting(t);
-  Pump(t);
-  Fan(t);
+void ControllSystem (const bool state) {
+  Lighting(state);
+  Pump();
+  Fan();
 }
 
 int ResetTime(int& t) {
@@ -64,22 +49,19 @@ int ResetTime(int& t) {
   return t;
 }
 
-void Lighting(int& t) {
+void Lighting(const bool state) {
   LIGHTING_SIGNAL = (analogRead(SENSOR_LIGHT) > 1000) ? "HIGH" : "LOW";
   digitalWrite(LIGHT_DIODE, LIGHTING_SIGNAL);
-  OneTimeLoop(TIME_WORKING_LIGHT, t);
 }
 
 void Pump(int& t) {
   PUMP_SIGNAL = (analogRead(SENSOR_WATER) >= 500) ? "LOW" : "HIGH";
   digitalWrite(PUMP, PUMP_SIGNAL);
-  OneTimeLoop(TIME_WORKING_PUMP, t);
 }
 
 void Fan(int& t) {
   FAN_SIGNAL = (analogRead(SENSOR_WATER) >= 500) ? "HIGH" : "LOW";
   digitalWrite(FAN, FAN_SIGNAL);
-  OneTimeLoop(TIME_WORKING_LIGHT, t);
 }
 
 void setup() {
@@ -99,4 +81,6 @@ void loop() {
   StartSystem(time);
   delay(10);
   time++;
+  
+  time = ResetTime(time);
 }

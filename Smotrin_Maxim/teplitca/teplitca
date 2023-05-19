@@ -47,8 +47,15 @@ struct COOLER {
   }
   COOLER = {false,false,false};
   
-
 void cooler() {
+    if( COOLER.status_vent
+        or COOLER.status_air_humidity
+        or COOLER.status_heat ) {
+        digitalWrite(VENT, HIGH);  // включить
+    } else digitalWrite(VENT, LOW);  // выключить
+}
+
+void heater() {
     if( COOLER.status_vent
         or COOLER.status_air_humidity
         or COOLER.status_heat ) {
@@ -130,4 +137,5 @@ void loop() {
   control_air_humidity();
   control_light();
   cooler();
+  heater();
 }

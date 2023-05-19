@@ -1,0 +1,110 @@
+#define M1_DIR 4
+#define M1_PWM 5
+#define M2_DIR 7
+#define M2_PWM 6
+int data;
+int u;
+int time = 0;
+int I = 0;
+int P = 0;
+int dt = 0;
+int Speed1 ;
+int Speed2;
+int ER0 = 0;
+int ER1 = 0;
+int Kp=1;
+int Ki=0.5;
+
+
+int ButtonRead(int ButtonPin)
+{
+  int Data = digitalRead(ButtonPin);
+  if(ButtonPin == 12) Data = !Data;
+  return Data;
+}
+
+void InitMotors()
+{
+  pinMode(M1_DIR, OUTPUT);
+  pinMode(M1_PWM, OUTPUT);
+  pinMode(M2_DIR, OUTPUT);
+  pinMode(M2_PWM, OUTPUT);
+}
+
+void Motors(int Speed1, int Speed2)
+{
+  if(Speed1 > 255) Speed1 = 255;
+  if(Speed1 < -255) Speed1 = -255;
+  if(Speed2 > 255) Speed2 = 255;
+  if(Speed2 < -255) Speed2 = -255;
+
+  if(Speed1 > 0)
+  {
+    digitalWrite(M1_DIR, 1);
+    analogWrite(M1_PWM, Speed1);
+  }
+  else
+  {
+    digitalWrite(M1_DIR, 0);
+    analogWrite(M1_PWM, -Speed1);
+  }
+
+  if(Speed2 > 0)
+  {
+    digitalWrite(M2_DIR, 1);
+    analogWrite(M2_PWM, Speed2);
+  }
+  else
+  {
+    digitalWrite(M2_DIR, 0);
+    analogWrite(M2_PWM, -Speed2);
+  }
+}
+
+
+
+int LineSensorRead(const int SensorPin)
+{
+  if(SensorPin < A0 || SensorPin > A3)
+    return -1;
+
+  int Data = analogRead(SensorPin);
+  return Data;
+}
+
+
+void setup()
+{
+  pinMode(12, INPUT_PULLUP);
+  InitMotors();
+  Serial.begin(9600);
+  
+}
+
+void search_LINE(){
+  if  (data < 620){
+    time = + 1;
+    if  (data < 620 && time > 1000){
+   Motors (180, 250);
+      if  (data > 620){
+        time = 0;
+        return;
+      }
+    }
+  }
+  
+}
+
+
+void loop() {
+ 
+data=LineSensorRead(A2);
+Serial.print(LineSensorRead(A2));
+Serial.println();
+ER0=650-data;
+P=ER0*Kp;
+I=I+ER0*Ki;
+u=P+I;
+Motors(150-u, 150+u);
+
+}

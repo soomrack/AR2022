@@ -92,12 +92,14 @@ void entering_line(){
     delay(500);
     Motors(0,0);
     delay(500);
+    return;
   }
-  else if (last_detected == 2){
+  if (last_detected == 2){
     Motors(0,100);
     delay(500);
     Motors(0,0);
     delay(500);
+    return;
   }
   
 }

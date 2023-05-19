@@ -120,6 +120,7 @@ void state_search_line (int sensor_left_converted, int sensor_right_converted){ 
       spiral_speed += 1;
     }
   }
+  
   if (last_detected == 2){  // Правый датчик засек линию,значит она где-то справа, двигаем по часовой стрелки до момента детектирования линии левым датчиком
     if (sensor_left_converted < 50){
       entering_line();
@@ -147,10 +148,12 @@ void loop() {
   if (button == 0 and curr_state == standb_by){
     curr_state == keep_line;
     delay(300);
+    return;
   }
-  else if (button == 0 and curr_state == keep_line){
+  if (button == 0 and curr_state == keep_line){
     curr_state = standb_by;
     delay(300);
+    return;
   }
   
   robot_actions[curr_state]();

@@ -5,7 +5,7 @@ DHT dht(2, DHT21);  //датчик темп. и влаги подключен в
 #define PUMP 6
 #define VENT 7
 #define LIGHT_SENSOR A0
-#define AIR_HUMIDITY_SENSOR A1  // ввести второй датчик влажности почвы
+#define AIR_HUMIDITY_SENSOR A1 
 #define DIRT_HUMIDITY_SENSOR A2
 
 int DIRT_HUMIDITY_MIN = 50;  // Влажность почвы, %
@@ -19,7 +19,7 @@ int SECONDS = 0;  //секунды с начала дня, 16*60*60 - начал
 int TEMPERATURE_CURRENT = 20;  // Текущая температура, град C
 int AIR_HUMIDITY_CURRENT = analogRead(AIR_HUMIDITY_SENSOR);
 
-enum Regime {DAY,NIGHT};// режимы капсом
+enum Regime {DAY,NIGHT};
 enum Regime CURR_REGIME = DAY; 
 
 enum Regime_pump {humidity_ok, irrigation, hold};
@@ -82,7 +82,7 @@ void periodic_ventilation() {  // интервал времени проветр
 
 
 
-void temperature_control(){  // TODO
+void temperature_control(){ 
   dht.read();
   if (TEMPERATURE_CURRENT < 15) { // если t<15 град, включается обогреватель 
     digitalWrite(HEAT, HIGH);

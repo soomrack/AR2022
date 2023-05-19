@@ -19,7 +19,7 @@ int SECONDS = 0;  //секунды с начала дня, 16*60*60 - начал
 int CURRENT_TEMPERATURE = 20;  // Текущая температура, град C
 int CURRENT_AIR_HUMIDITY = analogRead(AIR_HUMIDITY_SENSOR);
 
-enum Regime {DAY,NIGHT};// режимы капсом
+enum Regime {DAY,NIGHT};
 enum Regime CURR_REGIME = DAY; 
 enum Regime_pump {humidity_ok, irrigation, hold};
 enum Regime_pump regime_pump = humidity_ok;
@@ -56,11 +56,9 @@ void cooler() {
 }
 
 void heater() {
-    if( COOLER.status_vent
-        or COOLER.status_air_humidity
-        or COOLER.status_heat ) {
-        digitalWrite(VENT, HIGH);  // включить
-    } else digitalWrite(VENT, LOW);  // выключить
+    if COOLER.status_heat {
+        digitalWrite(HEAT, LOW);  // выключить
+    } else digitalWrite(HEAT, HIGH);  // включить
 }
 
 

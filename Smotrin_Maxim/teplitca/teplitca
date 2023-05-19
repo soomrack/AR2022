@@ -21,7 +21,8 @@ int CURRENT_AIR_HUMIDITY = analogRead(AIR_HUMIDITY_SENSOR);
 
 enum Regime {DAY,NIGHT};// режимы капсом
 enum Regime CURR_REGIME = DAY; 
-
+enum Regime_pump {humidity_ok, irrigation, hold};
+enum Regime_pump regime_pump = humidity_ok;
 
 void timer(){
   SECONDS++;
@@ -63,10 +64,6 @@ void periodic_ventilation() {
   if(14*60*60 < SECONDS & SECONDS < 15*60*60 & CURRENT_AIR_HUMIDITY > MIN_AIR_HUMIDITY) { COOLER.status_vent = true; return;}
   COOLER.status_vent = false;
 }
-
-
-enum Regime_pump {humidity_ok, irrigation, hold};
-enum Regime_pump regime_pump = humidity_ok;
 
 
 void control_temperature(){  // TODO
@@ -125,7 +122,7 @@ void setup() {
 }
 
 
-void loop() { // можно отсчет времени сделать отдельной фунуцией
+void loop() {
   timer();
   periodic_ventilation();
   control_temperature();

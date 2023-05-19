@@ -8,13 +8,23 @@ int time = 0;
 int I = 0;
 int P = 0;
 int dt = 0;
-int Speed1 ;
-int Speed2;
 int ER0 = 0;
-int ER1 = 0;
-int Kp=1;
-int Ki=0.5;
+int Kp=2;
+int Ki=0.8;
+int a=0;
+int t=0;
+int left=0;
+int right=0;
 
+enum State {
+  SEARCHLINE,
+  MOVE
+};
+
+enum Turn {
+  LEFT,
+  RIGHT
+};
 
 int ButtonRead(int ButtonPin)
 {
@@ -75,6 +85,7 @@ int LineSensorRead(const int SensorPin)
 
 void setup()
 {
+  
   pinMode(12, INPUT_PULLUP);
   InitMotors();
   Serial.begin(9600);
@@ -82,29 +93,61 @@ void setup()
 }
 
 void search_LINE(){
-  if  (data < 620){
-    time = + 1;
+  if  (data < 620)
+  {
+    //Motors (40, 250);
+   if(t == Turn::LEFT) Motors(250,40);
+   if(t == Turn::RIGHT) Motors(40,250);
+
+    /*time = + 1;
     if  (data < 620 && time > 1000){
    Motors (180, 250);
       if  (data > 620){
         time = 0;
+        a = 1;
         return;
       }
-    }
+    }*/
+    
   }
-  
+  if (data > 620) {
+    a = 1;
+  }
+   
+}
+void control()
+{
+ 
+if (a == State::MOVE) Move();
+if (a == State::SEARCHLINE) search_LINE();
 }
 
-
-void loop() {
- 
-data=LineSensorRead(A2);
-Serial.print(LineSensorRead(A2));
-Serial.println();
+void Move()
+{
+//data=LineSensorRead(A2);
 ER0=650-data;
 P=ER0*Kp;
 I=I+ER0*Ki;
 u=P+I;
+left = 150+u;
+right = 150-u;
 Motors(150-u, 150+u);
+if (data < 620){
+  a = 0;
+}
+if (left > right)
+    {
+      t=1;
+    } 
+    else
+    {
+      t=0;
+    }
+}
+
+void loop() {
+
+data=LineSensorRead(A2);
+control();
 
 }

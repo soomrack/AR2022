@@ -2,17 +2,16 @@
 #define M1_PWM 5
 #define M2_DIR 7
 #define M2_PWM 6
-int data;
-int u;
-int time = 0;
+int DATA;
+int U;
+int TIME = 0;
 int I = 0;
 int P = 0;
-int dt = 0;
 int ER0 = 0;
 int Kp=2;
 int Ki=0.8;
-int a=0;
-int t=0;
+int MachineState=0;
+int MachineTurn=0;
 int left=0;
 int right=0;
 
@@ -93,61 +92,49 @@ void setup()
 }
 
 void search_LINE(){
-  if  (data < 620)
+  if  (DATA < 620)
   {
     //Motors (40, 250);
-   if(t == Turn::LEFT) Motors(250,40);
-   if(t == Turn::RIGHT) Motors(40,250);
-
-    /*time = + 1;
-    if  (data < 620 && time > 1000){
-   Motors (180, 250);
-      if  (data > 620){
-        time = 0;
-        a = 1;
-        return;
-      }
-    }*/
-    
+   if(MachineTurn == Turn::LEFT) Motors(250,40);
+   if(MachineTurn == Turn::RIGHT) Motors(40,250);  
   }
-  if (data > 620) {
-    a = 1;
+  if (DATA > 620) {
+    MachineState = 1;
   }
    
 }
 void control()
 {
  
-if (a == State::MOVE) Move();
-if (a == State::SEARCHLINE) search_LINE();
+if (MachineState == State::MOVE) Move();
+if (MachineState == State::SEARCHLINE) search_LINE();
 }
 
 void Move()
 {
-//data=LineSensorRead(A2);
-ER0=650-data;
+ER0=650-DATA;
 P=ER0*Kp;
 I=I+ER0*Ki;
-u=P+I;
-left = 150+u;
-right = 150-u;
-Motors(150-u, 150+u);
-if (data < 620){
-  a = 0;
+U=P+I;
+left = 150+U;
+right = 150-U;
+Motors(150-U, 150+U);
+if (DATA < 620){
+  MachineState = 0;
 }
 if (left > right)
     {
-      t=1;
+      MachineTurn=1;
     } 
     else
     {
-      t=0;
+      MachineTurn=0;
     }
 }
 
 void loop() {
 
-data=LineSensorRead(A2);
+DATA=LineSensorRead(A2);
 control();
 
 }

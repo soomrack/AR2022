@@ -24,13 +24,13 @@ DHT DHT_F(DHTPIN, DHTTYPE);
 DHT DHT_S(DHTPIN, DHTTYPE);
 APDS9930 apds;
 
-struct Cooler {
+struct Status {
   bool status_vent;
   bool status_air_humudity;
   bool status_dirt_humudity;
   bool status_heat;
   bool status_light;
-} COOLER = {false, false, false, false, false};
+} STATUS = {false, false, false, false, false};
 
 struct Climate {
   int min_dirt_humidity;
@@ -43,14 +43,14 @@ struct Climate {
   int max_light;
 } CLIMATE = {30, 50, 40, 50, 15, 24, 5000, 12000};
 
-enum class TimeOfDay {
+enum TimeOfDay {
   DAY,
   NIGHT
 };
 
 // полив
 void irrigate() {
-  if (COOLER.status_dirt_humudity && COOLER.status_air_humudity) {
+  if (STATUS.status_dirt_humudity && STATUS.status_air_humudity) {
     digitalWrite(WATER_PUMP, HIGH);
   } else {
     digitalWrite(WATER_PUMP, LOW);
@@ -59,7 +59,7 @@ void irrigate() {
 
 // обогреватель
 void heater() {
-  if (COOLER.status_heat) {
+  if (STATUS.status_heat) {
     digitalWrite(HEATER, HIGH);
   } else {
     digitalWrite(HEATER, LOW);
@@ -68,9 +68,9 @@ void heater() {
 
 // обдув
 void fan() {
-  if( COOLER.status_vent
-        && COOLER.status_air_humidity
-        && COOLER.status_heat ) {
+  if( STATUS.status_vent
+        && STATUS.status_air_humidity
+        && STATUS.status_heat ) {
         digitalWrite(FAN, HIGH);
     } else {
         digitalWrite(FAN, LOW);
@@ -79,7 +79,7 @@ void fan() {
 
 // освещение
 void light() {
-  if (COOLER.status_light) {
+  if (STATUS.status_light) {
     digitalWrite(LIGHT_DIODE, HIGH);
   } else {
     digitalWrite(LIGHT_DIODE, LOW);
@@ -97,23 +97,23 @@ void timer() {
 // влючение вентиляции два раза в день на 1 час
 void periodic_ventilation() {
   if (F_TIME_COOLER < TIME_SECONDS 
-        && TIME_SECONDS < (F_TIME_COOLER + INTERVAL_TIME_COOLER)) { COOLER.status_vent = true; return;}
+        && TIME_SECONDS < (F_TIME_COOLER + INTERVAL_TIME_COOLER)) { STATUS.status_vent = true; return;}
   if (S_TIME_COOLER < TIME_SECONDS 
-        && TIME_SECONDS < (S_TIME_COOLER + INTERVAL_TIME_COOLER)) { COOLER.status_vent = true; return;}
-  COOLER.status_vent = false;
+        && TIME_SECONDS < (S_TIME_COOLER + INTERVAL_TIME_COOLER)) { STATUS.status_vent = true; return;}
+  STATUS.status_vent = false;
 }
 
 void control_temperature() {
   // считываем температуру в цельсиях
   float t = DHT_F.readTemperature();
   if (t < CLIMATE.min_air_temp) {
-    COOLER.status_heat = true; 
-    COOLER.status_vent = false; 
+    STATUS.status_heat = true; 
+    STATUS.status_vent = false; 
     return;
   }
   if (t > CLIMATE.max_air_temp) {
-    COOLER.status_vent = true; 
-    COOLER.status_heat = false; 
+    STATUS.status_vent = true; 
+    STATUS.status_heat = false; 
     return;
   }
 }
@@ -122,13 +122,13 @@ void control_dirt_humidity() {
   // считываем влажность
   float h = DHT_S.readHumidity(); 
   if (h < CLIMATE.min_dirt_humidity) {
-    COOLER.status_dirt_humudity = true; 
-    COOLER.status_heat = false;
+    STATUS.status_dirt_humudity = true; 
+    STATUS.status_heat = false;
     return;
   }
   if (h > CLIMATE.max_dirt_humidity) {
-    COOLER.status_dirt_humudity = false; 
-    COOLER.status_heat = true;
+    STATUS.status_dirt_humudity = false; 
+    STATUS.status_heat = true;
     return;
   }
 }
@@ -137,13 +137,13 @@ void control_air_humidity() {
   // считываем влажность
   float h = DHT_F.readHumidity();
   if (h < CLIMATE.min_air_humidity) {
-    COOLER.status_air_humudity = true;
-    COOLER.status_vent = false;
+    STATUS.status_air_humudity = true;
+    STATUS.status_vent = false;
     return;
   }
   if (h > CLIMATE.max_air_humidity) {
-    COOLER.status_air_humudity = false;
-    COOLER.status_vent = true;
+    STATUS.status_air_humudity = false;
+    STATUS.status_vent = true;
     return;
   }
 }
@@ -151,7 +151,7 @@ void control_air_humidity() {
 void control_light() {
   // считываем освещение
   flaot l = apds.readAmbientLightLux();
-  COOLER.status_light = (STATE_DAY == TimeOfDay::DAY 
+  STATUS.status_light = (STATE_DAY == TimeOfDay::DAY 
                           && l < CLIMATE.min_light) ? true : false;
 }
 

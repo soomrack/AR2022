@@ -1,0 +1,118 @@
+#include <DHT.h>
+#include <LiquidCrystal_I2C.h>
+
+// Pin Configuration
+#define DHT_PIN 2
+#define DHT_TYPE DHT21
+DHT dht(DHT_PIN, DHT_TYPE);
+
+#define LIGHT_SENSOR_PIN A0
+
+// LCD Configuration
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+// Control Pins
+#define LED_PIN 13
+#define FAN_PIN 7
+#define HEATER_PIN 4
+
+// Sensor Readings
+float temperature = 0.0;
+float humidity = 0.0;
+int lightIntensity = 0;
+
+// Setpoint and Thresholds
+const float DESIRED_TEMPERATURE = 25.0;
+const float TEMPERATURE_THRESHOLD = 2.0;
+const int DESIRED_LIGHT_INTENSITY = 500;
+const int LIGHT_INTENSITY_THRESHOLD = 100;
+
+// Control Variables
+bool fanOn = false;
+bool heaterOn = false;
+
+void setup() {
+  // Initialize Serial communication
+  Serial.begin(9600);
+
+  // Initialize DHT sensor
+  dht.begin();
+
+  // Initialize LCD display
+  lcd.begin(16, 2);
+  lcd.print("Temperature: ");
+  lcd.setCursor(0, 1);
+  lcd.print("Humidity: ");
+
+  // Set pin modes
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(FAN_PIN, OUTPUT);
+  pinMode(HEATER_PIN, OUTPUT);
+}
+
+void loop() {
+  // Read sensor values
+  temperature = dht.readTemperature();
+  humidity = dht.readHumidity();
+  lightIntensity = analogRead(LIGHT_SENSOR_PIN);
+
+  // Update LCD display
+  lcd.setCursor(13, 0);
+  lcd.print("     ");
+  lcd.setCursor(13, 0);
+  lcd.print(temperature);
+  lcd.setCursor(10, 1);
+  lcd.print("     ");
+  lcd.setCursor(10, 1);
+  lcd.print(humidity);
+
+  // Control the environment based on sensor readings
+  controlTemperature();
+  controlLightIntensity();
+
+  // Print sensor readings and control status to Serial Monitor
+  printDataToSerial();
+  printControlStatusToSerial();
+
+  delay(2000);
+}
+
+void controlTemperature() {
+  if (temperature <= (DESIRED_TEMPERATURE - TEMPERATURE_THRESHOLD)) {
+    heaterOn = true;
+    fanOn = false;
+  } else if (temperature >= (DESIRED_TEMPERATURE + TEMPERATURE_THRESHOLD)) {
+    heaterOn = false;
+    fanOn = true;
+  } else {
+    heaterOn = false;
+    fanOn = false;
+  }
+
+  digitalWrite(HEATER_PIN, heaterOn);
+  digitalWrite(FAN_PIN, fanOn);
+}
+
+void controlLightIntensity() {
+  if (lightIntensity <= (DESIRED_LIGHT_INTENSITY - LIGHT_INTENSITY_THRESHOLD)) {
+    digitalWrite(LED_PIN, HIGH);
+  } else if (lightIntensity >= (DESIRED_LIGHT_INTENSITY + LIGHT_INTENSITY_THRESHOLD)) {
+    digitalWrite(LED_PIN, LOW);
+  }
+}
+
+void printDataToSerial() {
+  Serial.print("Temperature: ");
+  Serial.print(temperature);
+  Serial.print(" °C, Humidity: ");
+  Serial.print(humidity);
+  Serial.print(" %, Light Intensity: ");
+  Serial.println(lightIntensity);
+}
+
+void printControlStatusToSerial() {
+  Serial.print("Heater: ");
+  Serial.print(heaterOn ? "ON" : "OFF");
+  Serial.print(", Fan: ");
+  Serial.println(fanOn ? "ON" : "OFF");
+}

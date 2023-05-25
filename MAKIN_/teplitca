@@ -41,9 +41,9 @@ struct Climate {
   int max_air_temp;
   int min_light;
   int max_light;
-} CLIMATE = {30, 50, 40, 50, 15, 24, 5000, 12000};
+} CLIMATE = {30, 50, 40, 50, 15, 24, 5000, 12000}; // задаём исходные параметры влажности почвы, воздуха и прочего
 
-enum class TimeOfDay {
+enum class TimeOfDay { //выбор переменной день или ночь
   DAY,
   NIGHT
 };

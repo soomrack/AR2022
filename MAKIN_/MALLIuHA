@@ -1,4 +1,4 @@
-#define M1_DIR 4
+#define M1_DIR 4 
 #define M1_PWM 5
 #define M2_DIR 7
 #define M2_PWM 6
@@ -15,15 +15,9 @@ int MachineTurn=0;
 int left=0;
 int right=0;
 
-enum State {
-  SEARCHLINE,
-  MOVE
-};
+enum State {SEARCHLINE,  MOVE}; //функция выбора состояния машинки ПОИСК ЛИНИИ и ДВИЖЕНИЕ ПО ЛИНИИ
 
-enum Turn {
-  LEFT,
-  RIGHT
-};
+enum Turn { LEFT,  RIGHT}; // функция выбора поворота при поиске линии
 
 int ButtonRead(int ButtonPin)
 {
@@ -72,7 +66,7 @@ void Motors(int Speed1, int Speed2)
 
 
 
-int LineSensorRead(const int SensorPin)
+int LineSensorRead(const int SensorPin) // функция получения данных с датчика
 {
   if(SensorPin < A0 || SensorPin > A3)
     return -1;
@@ -91,14 +85,13 @@ void setup()
   
 }
 
-void search_LINE(){
-  if  (DATA < 620)
+void search_LINE(){      // функция поиска линии
+  if  (DATA < 620)       //если сигнал с датчика маньше 620(черный цвет), то выполнить то, что в скобках
   {
-    //Motors (40, 250);
-   if(MachineTurn == Turn::LEFT) Motors(250,40);
-   if(MachineTurn == Turn::RIGHT) Motors(40,250);  
+   if(MachineTurn == Turn::LEFT) Motors(250,40);    //если переменная  MachineTurn = 0 ( 0 обозначает переменную LEFT из функции выбора поворота enum в начале), то акивируется функция  Motors(250,40) (250- скорость левых колёс, 40- скорость правых колёс)
+   if(MachineTurn == Turn::RIGHT) Motors(40,250);  //если переменная  MachineTurn = 1 ( 1 обозначает переменную RIGHT из функции выбора поворота enum в начале), то акивируется функция  Motors(40,250) (250- скорость правых колёс, 40- скорость левых колёс)
   }
-  if (DATA > 620) {
+  if (DATA > 620) {      //если сигнал с датчика больше 620(белый цвет), то MachineState=1, то есть нужно искать линию
     MachineState = 1;
   }
    
@@ -106,35 +99,35 @@ void search_LINE(){
 void control()
 {
  
-if (MachineState == State::MOVE) Move();
-if (MachineState == State::SEARCHLINE) search_LINE();
+if (MachineState == State::MOVE) Move();      //если переменная  MachineState = 0 ( 0 обозначает переменную MOVE из функции выбора состояния машинки enum в начале), то переходим в выполнение функции Move()
+if (MachineState == State::SEARCHLINE) search_LINE();   //если переменная  MachineState = 1 ( 1 обозначает переменную SEARCHLINE из функции выбора состояния машинки enum в начале), то переходим в выполнение функции search_LINE(), которая была выше
 }
 
 void Move()
 {
-ER0=650-DATA;
-P=ER0*Kp;
-I=I+ER0*Ki;
-U=P+I;
-left = 150+U;
+ER0=650-DATA;  //находим ошибку с датчика(разность между текущим значением тачика и заданным, равным 650)
+P=ER0*Kp; //вычисляем пропорцианальную составляющую  ПИ-регулятора(Кр коэффициент задали в самом начале)
+I=I+ER0*Ki; //вычисляем интегральную составляющую  ПИ-регулятора (Кi коэффициент задали в самом начале)
+U=P+I;  // вычисляем управляющий сигнал
+left = 150+U; //считаем скорости вращения колёс
 right = 150-U;
-Motors(150-U, 150+U);
-if (DATA < 620){
+Motors(150-U, 150+U); // задаём скорости вращения колёс с учётом управляющего сигнал
+if (DATA < 620){     //если сигнал с датчика маньше 620(черный цвет), то  MachineState = 0 и произойдёт переход к функции Move(), то есть машинка на линии
   MachineState = 0;
 }
-if (left > right)
+if (left > right)   //если скорость правых колёс больше чем левых, то MachineTurn=1 машинка начнёт поворачивать налево(указано в функции search_LINE() выше)
     {
       MachineTurn=1;
     } 
     else
     {
-      MachineTurn=0;
+      MachineTurn=0; //если (наоборот скорость левых колёс больше чем правых), то MachineTurn=0 машинка начнёт поворачивать направо(указано в функции search_LINE() выше)
     }
 }
 
 void loop() {
 
-DATA=LineSensorRead(A2);
-control();
+DATA=LineSensorRead(A2);//получаем данные с датчика освещённости
+control(); //активируем функцию  control()
 
 }

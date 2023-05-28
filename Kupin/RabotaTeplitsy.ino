@@ -1,0 +1,141 @@
+#include <DHT.h>
+
+#define TIME_NIGHT 86400            // ночь = [16*60*60, 24*60*60]
+#define TIME_DAY 57600              // день = [0,16*60*60]
+#define F_TIME_COOLER 7200          // время автономного включения куллера 
+#define S_TIME_COOLER 21600         // время автономного включения куллера 
+#define INTERVAL_TIME_COOLER 3600   // интервал в котором включается куллер
+
+#define DHTPIN 2                    // контакт подключения датчика температуры
+#define RELAY 4                     // контакт реле
+#define WATER_PUMP 5                // помпа
+#define LIGHT_DIODE 6               // лента
+#define FAN 7                       // вентилятор
+#define HEATER 8                    // обогреватель
+
+#define DHTTYPE DHT21               // DHT 21  (AM2301)
+
+int TIME_SECONDS = 0;               // день = [0,16*60*60] ночь = [16*60*60, 24*60*60] секунд
+int STATE_DAY = 0;
+
+// объявляем объекты с параметрами
+DHT DHT_F(DHTPIN, DHTTYPE);
+DHT DHT_S(DHTPIN, DHTTYPE);
+
+struct Status {
+  bool status_vent;
+  bool status_air_humidity;
+  bool status_dirt_humidity;
+  bool status_heat;
+  bool status_light;
+} STATUS = {false, false, false, false, false};
+
+struct Climate {
+  int min_dirt_humidity;
+  int max_dirt_humidity;
+  int min_air_humidity;
+  int max_air_humidity;
+  int min_air_temp;
+  int max_air_temp;
+  int min_light;
+  int max_light;
+} CLIMATE = {30, 50, 40, 50, 15, 24, 5000, 12000};
+
+enum TimeOfDay {
+  DAY,
+  NIGHT
+};
+
+// полив
+void irrigate() {
+  digitalWrite(WATER_PUMP, STATUS.status_dirt_humidity && STATUS.status_air_humidity);
+}
+
+// обогреватель
+void heater() {
+  digitalWrite(HEATER, STATUS.status_heat);
+}
+
+// обдув
+void fan() {
+  digitalWrite(FAN, STATUS.status_vent && STATUS.status_air_humidity && STATUS.status_heat);
+}
+
+// освещение
+void light() {
+  digitalWrite(LIGHT_DIODE, STATUS.status_light);
+}
+
+// реализация таймера
+void timer() {
+  TIME_SECONDS++;
+  STATE_DAY = TIME_SECONDS > TIME_DAY ? 1 : 0;
+  if (TIME_SECONDS >= TIME_NIGHT) TIME_SECONDS = 0;
+  delay(1000);
+}
+
+// включение вентиляции два раза в день на 1 час
+void periodic_ventilation() {
+  if ((F_TIME_COOLER < TIME_SECONDS && TIME_SECONDS < (F_TIME_COOLER + INTERVAL_TIME_COOLER)) ||
+      (S_TIME_COOLER < TIME_SECONDS && TIME_SECONDS < (S_TIME_COOLER + INTERVAL_TIME_COOLER))) {
+    STATUS.status_vent = true;
+  } else {
+    STATUS.status_vent = false;
+  }
+}
+
+void control_temperature() {
+  // считываем температуру в цельсиях
+  float t_f = DHT_F.readTemperature();
+  float t_s = DHT_S.readTemperature();
+
+  STATUS.status_heat = (t_f < CLIMATE.min_air_temp && t_s < CLIMATE.min_air_temp);
+  STATUS.status_vent = (t_f > CLIMATE.max_air_temp || t_s > CLIMATE.max_air_temp);
+}
+
+void control_dirt_humidity() {
+  // считываем влажность
+  float h_s = DHT_S.readHumidity();
+  STATUS.status_dirt_humidity = (h_s < CLIMATE.min_dirt_humidity);
+  STATUS.status_heat = (h_s > CLIMATE.max_dirt_humidity);
+}
+
+void control_air_humidity() {
+  // считываем влажность
+  float h_f = DHT_F.readHumidity();
+  float h_s = DHT_S.readHumidity();
+
+  STATUS.status_air_humidity = (h_f < CLIMATE.min_air_humidity && h_s < CLIMATE.min_air_humidity);
+  STATUS.status_vent = (h_f > CLIMATE.max_air_humidity || h_s > CLIMATE.max_air_humidity);
+}
+
+void control_light() {
+  // считываем освещение
+  int l = analogRead(A0);
+  STATUS.status_light = (STATE_DAY == TimeOfDay::DAY && l < CLIMATE.min_light);
+}
+
+void setup() {
+  Serial.begin(9600);
+  DHT_F.begin();                   // запускаем датчик
+  DHT_S.begin();                   // запускаем датчик
+  pinMode(WATER_PUMP, OUTPUT);
+  pinMode(LIGHT_DIODE, OUTPUT);
+  pinMode(FAN, OUTPUT);
+  pinMode(HEATER, OUTPUT);
+}
+
+void loop() {
+  timer();
+
+  periodic_ventilation();
+  control_temperature();
+  control_dirt_humidity();
+  control_air_humidity();
+  control_light();
+
+  irrigate();
+  fan();
+  heater();
+  light();
+}

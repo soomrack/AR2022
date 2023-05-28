@@ -1,0 +1,138 @@
+#include <TroykaDHT.h>
+DHT dht(2, DHT21);              //датчик темп. и влаги подключен в порт D2
+#define HEAT 4                  // обогреватель подключен в порт 4
+#define LIGHT 5                 // светодиодная лента подключена в порт 5
+#define PUMP 6                  // насос подключен в порт 6
+#define VENT 7                  // вентилятор подключен в порт 7
+#define LIGHT_SENSOR A0         // датчие освещенность подключен в порт А0
+#define AIR_HUMIDITY_SENSOR A1  // датчик влажности воздуха подключен в порт А1
+#define SOIL_HUMIDITY_SENSOR A2 // датчик влажнонсти почвы подключен в порт А2
+
+// вводим ограничительные диапазоны влажностей
+int MIN_SOIL_HUMIDITY = 50;  // Влажность почвы, %
+int MAX_SOIL_HUMIDITY = 70;
+int MIN_AIR_HUMIDITY = 50;  // Влажность воздуха, %
+int MAX_AIR_HUMIDITY = 70;
+
+int SECONDS = 0;  // переменная для подсчета секунд, 
+//секунды с начала дня, 16*60*60 - начало ночи, ночь 8 часов, с 16 до 24
+
+//обозначаем глобальные переменные для показаний датчика температуры и влажности воздуха
+int CURRENT_TEMPERATURE = 20;                                 // Текущая температура, град C
+int CURRENT_AIR_HUMIDITY = analogRead(AIR_HUMIDITY_SENSOR);   // Текущая влажность воздуха берется по датчику влажности, %
+
+enum MODE {DAY,NIGHT};            // создаем переменну состояние текужего режима с двумя вариантами (день, ночь), начальное состояние "день"
+enum MODE CURRENT_REGIME = DAY; 
+
+
+void timer(){         // Функция счета времени с переводом текущего режима в "ночь"
+  SECONDS++;
+  if(SECONDS >= 60*60*24){
+  SECONDS = 0;
+  CURRENT_REGIME = DAY;
+  }
+  if (SECONDS >= 60*60*16) CURRENT_REGIME = NIGHT;
+  delay(1000);  // 1 секунда пауза
+}
+
+
+void control_light() {  // фукция контроля освещения
+  if (CURRENT_REGIME == DAY) {
+    if (analogRead(LIGHT_SENSOR) < 100) digitalWrite(LIGHT, HIGH);
+    else digitalWrite(LIGHT, LOW);
+  } else digitalWrite(LIGHT, LOW);
+}
+
+
+struct COOLER {     
+  bool status_vent;
+  bool status_air_humidity;
+  bool status_heat;
+  }
+  COOLER = {false,false,false};
+  
+
+void cooler() {
+    if( COOLER.status_vent || COOLER.status_air_humidity || COOLER.status_heat ) {
+        digitalWrite(VENT, HIGH);  // включить
+    } else digitalWrite(VENT, LOW);  // выключить
+}
+
+
+void periodic_ventilation() {       //функция периодического вентилирования
+  if (
+    (CURRENT_AIR_HUMIDITY > MIN_AIR_HUMIDITY) & ((2*60*60 < SECONDS & SECONDS < 3*60*60) 
+    || (6*60*60 < SECONDS & SECONDS < 7*60*60) || (10*60*60 < SECONDS & SECONDS < 11*60*60) || (14*60*60 < SECONDS & SECONDS < 15*60*60))
+    ) {
+    COOLER.status_vent = true;  // включение вентилятора по периодизации
+  } else {
+    COOLER.status_vent = false;
+  }
+}
+
+
+void control_temperature(){  // функция контроля температуры
+  dht.read();
+  if (CURRENT_TEMPERATURE < 15) { // если t<15 град, включается обогреватель 
+    digitalWrite(HEAT, HIGH);
+  }
+  if (CURRENT_TEMPERATURE > 35) {  // если t>35 град, то включается кулер, обогреватель выключается
+    COOLER.status_heat = true;     // включение вентилятора по перегреву
+    digitalWrite(HEAT, LOW);
+  } else {
+    COOLER.status_heat = false;  // если 15<t<35 град, то кулер и обогреватель выключены
+    digitalWrite(HEAT, LOW);
+  }
+}
+
+
+void irrigate(){  // функция для включения полива
+  int min_hold_time = 60;  // время ожидания между поливами
+  int max_irrigation_time = 10;  // время полива
+  static int current_hold_time = 0;
+  static int current_irrigation_time = 0;
+  digitalWrite(PUMP, HIGH);
+  if (current_irrigation_time > max_irrigation_time){
+    digitalWrite(PUMP, LOW);
+    if (current_hold_time > min_hold_time){
+      current_hold_time = 0;
+      current_irrigation_time = 0;
+    }
+    else current_hold_time++;
+  }
+  else current_irrigation_time++;
+}
+
+
+void control_soil_humidity(){   // функция контроля влажности почвы
+  int soil_humidity = analogRead(SOIL_HUMIDITY_SENSOR);
+  if (soil_humidity < MIN_SOIL_HUMIDITY) irrigate();
+}
+
+
+void control_air_humidity(){    // функция контроля влажности воздуха
+  CURRENT_AIR_HUMIDITY = analogRead(AIR_HUMIDITY_SENSOR);
+  if (CURRENT_AIR_HUMIDITY > MAX_AIR_HUMIDITY) COOLER.status_air_humidity = true; // включение вентилятора по избыточной влажности
+  else COOLER.status_air_humidity = false;
+}
+
+
+void setup() {
+  pinMode(HEAT, OUTPUT);
+  pinMode(VENT, OUTPUT);
+  pinMode(LIGHT, OUTPUT);
+  pinMode(PUMP, OUTPUT);
+  Serial.begin(9600);
+  delay(2000);
+}
+
+
+void loop() { 
+  timer();
+  periodic_ventilation();
+  control_temperature();
+  control_soil_humidity();
+  control_air_humidity();
+  control_light();
+  cooler();
+}

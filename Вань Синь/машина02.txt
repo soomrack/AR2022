@@ -1,19 +1,15 @@
 #include <Servo.h>
 #include "SoftwareSerial.h"
 
-SoftwareSerial SoftSerial(9,10);
-Servo AngleServo;
 
 #define LeftMotor1 3  
-#define LeftMotor2 5 	
+#define LeftMotor2 5 	+
 #define RightMotor1 6	
-#define RightMotor2 7	
-#define track1 8	
-#define track2 9
-#define track3 10
-#define track4 11
+#define RightMotor2 9	
+#define track1 10	
+#define track2 11
 
-int Sensor[4] = {0, 0, 0, 0};
+int Sensor[4] = {0, 0};
 int i = 0;
 
 void setup() {
@@ -35,8 +31,7 @@ void Track_Init()
  
   pinMode(track1, INPUT);
   pinMode(track2, INPUT);
-  pinMode(track3, INPUT);
-  pinMode(track4, INPUT);
+
 }
 void Motor_Init()
 {
@@ -50,8 +45,6 @@ void Sensor_Read()
 {
   Sensor [0] = digitalRead(track1); 
   Sensor [1] = digitalRead(track2);
-  Sensor [2] = digitalRead(track3);
-  Sensor [3] = digitalRead(track4);
 }
 void Motor_Speed(int Left1_Speed, int Left2_Speed, int Right1_Speed, int Right2_Speed)
 {
@@ -62,46 +55,18 @@ void Motor_Speed(int Left1_Speed, int Left2_Speed, int Right1_Speed, int Right2_
 }
 void xun_ji() 
 {
-  if (Sensor [0] == 0 && Sensor [1] == 1 && Sensor [2] == 0 && Sensor [3] == 0)  //0-1-0-0 小左转
+  if (Sensor [0] == 0 && Sensor [1] == 1 )  
     Motor_Speed(50, 0, 150, 0); 
-  else if (Sensor [0] == 0 && Sensor [1] == 0 && Sensor [2] == 1 && Sensor [3] == 0)  //0-0-1-0 小右转
+  else if (Sensor [0] == 1 && Sensor [1] == 0 ) 
     Motor_Speed(150, 0, 50, 0);
 
-  else if (Sensor [0] == 1 && Sensor [1] == 0 && Sensor [2] == 0 && Sensor [3] == 0)  //1-0-0-0 大左转
-    Motor_Speed(0, 180, 180, 0); 
-  else if (Sensor [0] == 0 && Sensor [1] == 0 && Sensor [2] == 0 && Sensor [3] == 1)  //0-0-0-1 大右转
-    Motor_Speed(180, 0, 0, 180); 
+  else if (Sensor [0] == 1 && Sensor [1] == 1 )  
+    Motor_Speed(180, 0, 180, 0); 
+  else if (Sensor [0] == 0 && Sensor [1] == 0 )  
+    Motor_Speed(180, 0, 180, 0); 
 
-  else if (Sensor [0] == 1 && Sensor [1] == 1 && Sensor [2] == 0 && Sensor [3] == 0)  //1-1-0-0 左急转弯
-    Motor_Speed(0, 200, 200, 0); 
-  else if (Sensor [0] == 0 && Sensor [1] == 0 && Sensor [2] == 1 && Sensor [3] == 1)  //0-0-1-1 右急转弯
-    Motor_Speed(200, 0, 0, 200); 
-  else  
-    Motor_Speed(100, 0, 100, 0);
 }
-void count()	
-{
-  if (i > 2) 
-  {
-    Motor_Speed(0, 0, 0, 0);  
-  }
-  else if (Sensor [0] == 1 && Sensor [1] == 1 && Sensor [2] == 1 && Sensor [3] == 1)
-{ 
-    i++;
-    delay(100); 
-  }
-  else if (Sensor [0] == 0 && Sensor [1] == 1 && Sensor [2] == 1 && Sensor [3] == 0) {
-    i++;
-    delay(100);
-  }
-  else if (Sensor [0] == 1 && Sensor [1] == 1 && Sensor [2] == 1 && Sensor [3] == 0) { 
-    i++;
-    delay(100);
-  }
-  else if (Sensor [0] == 0 && Sensor [1] == 1 && Sensor [2] == 1 && Sensor [3] == 1) { 
-    i++;
-    delay(100);
-  }
+
 }
 void Print()	
 {
@@ -109,7 +74,5 @@ void Print()
   Serial.print("---");
   Serial.print(Sensor [1]);
   Serial.print("---");
-  Serial.print(Sensor [2]);
-  Serial.print("---");
-  Serial.println(Sensor [3]);
+
 }

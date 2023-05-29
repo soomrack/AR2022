@@ -1,11 +1,10 @@
 #include <DHT.h>
-#include <APDS9930.h>
 
-#define TIME_NIGHT = 86400          // ночь = [16*60*60, 24*60*60]
-#define TIME_DAY = 57600            // день = [0,16*60*60]
-#define F_TIME_COOLER = 7200        // время автономного включения куллера 
-#define S_TIME_COOLER = 21600       // время автономного включения куллера 
-#define INTERVAL_TIME_COOLER = 3600 // интервал в котором включается куллер
+#define TIME_NIGHT 86400          // ночь = [16*60*60, 24*60*60]
+#define TIME_DAY 57600            // день = [0,16*60*60]
+#define F_TIME_COOLER 7200        // время автономного включения куллера 
+#define S_TIME_COOLER 21600       // время автономного включения куллера 
+#define INTERVAL_TIME_COOLER 3600 // интервал в котором включается куллер
 
 #define DHTPIN             2        // контакт подклчения датчика температуры
 #define RELAY              4        // контакт реле
@@ -22,7 +21,7 @@ int STATE_DAY = 0;
 // объявляем объект с параметрами
 DHT DHT_F(DHTPIN, DHTTYPE);
 DHT DHT_S(DHTPIN, DHTTYPE);
-APDS9930 apds;
+//APDS9930 apds;
 
 struct Status {
   bool status_vent;
@@ -137,39 +136,38 @@ void control_air_humidity() {
   // считываем влажность
   float h = DHT_F.readHumidity();
   if (h < CLIMATE.min_air_humidity) {
-    STATUS.status_air_humudity = true;
+    STATUS.status_air_humidity = true;
     STATUS.status_vent = false;
     return;
   }
   if (h > CLIMATE.max_air_humidity) {
-    STATUS.status_air_humudity = false;
+    STATUS.status_air_humidity = false;
     STATUS.status_vent = true;
     return;
   }
 }
 
-void control_light() {
+/*void control_light() {
   // считываем освещение
-  flaot l = apds.readAmbientLightLux();
+  float l = apds.readAmbientLightLux();
   STATUS.status_light = (STATE_DAY == TimeOfDay::DAY 
                           && l < CLIMATE.min_light) ? true : false;
-}
+}*/
 
 void setup() {
   Serial.begin(9600);
-  dht.begin();                     // запускаем датчик
-  apds.init();                     // Инициируем работу датчика
-  apds.enableLightSensor(false);   // Разрешаем режим определения освещённости:
+  DHT_S.begin();                     // запускаем датчик
+//  apds.init();                     // Инициируем работу датчика
+  //apds.enableLightSensor(false);   // Разрешаем режим определения освещённости:
 }
 
 void loop() {
   timer();
-
   periodic_ventilation();
   control_temperature();
   control_dirt_humidity();
   control_air_humidity();
-  control_light();
+  //control_light();
 
   irrigate();
   fan();

@@ -7,11 +7,11 @@ Servo AngleServo;
 #define LeftMotor1 3  
 #define LeftMotor2 5 	
 #define RightMotor1 6	
-#define RightMotor2 8	
-#define track1 9	
-#define track2 10
-#define track3 11
-#define track4 12
+#define RightMotor2 7
+#define track1 8
+#define track2 9
+#define track3 10
+#define track4 11
 
 int Sensor[4] = {0, 0, 0, 0};
 int i = 0;

@@ -1,11 +1,11 @@
 #include <DHT.h>
 #include <APDS9930.h>
 
-#define TIME_NIGHT = 86400          // ночь = [16*60*60, 24*60*60]
-#define TIME_DAY = 57600            // день = [0,16*60*60]
-#define F_TIME_COOLER = 7200        // время автономного включения куллера 
-#define S_TIME_COOLER = 21600       // время автономного включения куллера 
-#define INTERVAL_TIME_COOLER = 3600 // интервал в котором включается куллер
+#define TIME_NIGHT           86400  // ночь = [16*60*60, 24*60*60]
+#define TIME_DAY             57600  // день = [0,16*60*60]
+#define F_TIME_COOLER        7200   // время автономного включения куллера 
+#define S_TIME_COOLER        21600  // время автономного включения куллера 
+#define INTERVAL_TIME_COOLER 3600   // интервал в котором включается куллер
 
 #define DHTPIN             2        // контакт подклчения датчика температуры
 #define RELAY              4        // контакт реле

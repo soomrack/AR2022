@@ -111,8 +111,8 @@ void control_air_humidity() {
 
 void control_light() {
   // считываем освещение
-  int l = analogRead(A0);
-  STATUS.status_light = (STATE_DAY == TimeOfDay::DAY && l < CLIMATE.min_light);
+  int light_val = analogRead(A0);
+ STATUS.status_light = (light_val < CLIMATE.min_light || light_val > CLIMATE.max_light);
 }
 
 void setup() {

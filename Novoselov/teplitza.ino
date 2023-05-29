@@ -12,6 +12,9 @@
 
 int TEMP_OPTIM = 21;
 int TEMP_DELTA = 5;
+int HUMID_OPTIM = 55;
+int HUMID_DELTA = 10;
+float LAST_VENT_TIME = 0;
 unsigned long TEMP_SENS_DELAY = 5;
 unsigned long LIGHT_SENS_DELAY = 15; // период
 unsigned long PUMP_DELAY = 5;
@@ -48,8 +51,16 @@ int temp_sens_check() {
   };
 }
 
+int humid_sens_check() {
+  if (millis() - TEMP_SENS_DELAY > 5000) {
+    TEMP_SENS_DELAY = millis();
+    float h = dht.readHumidity(); //читаем влажность
+    return humid;
+  };
+}
+
 int light_sens_check() {
-  float time_delay=900000;
+  float time_delay = 15 * 60 * 1000; //15 минут
   if (millis() - LIGHT_SENS_DELAY > (time_delay)) {
     LIGHT_SENS_DELAY = millis();
     return analogRead(LIGHT_SENS);
@@ -57,7 +68,7 @@ int light_sens_check() {
 }
 
 
-void heater_off(), heat(), cooling(), pump_on(), pump_off(), light_on(), light_off();  // состояния
+void heater_off(), heat(), vent(), pump_on(), pump_off(), light_on(), light_off();  // состояния
 
 
 void (*statefunc_heater)() = heater_off;  // State pointer
@@ -87,8 +98,9 @@ void heater_off() {
   if (temp_sens_check() < (TEMP_OPTIM - TEMP_DELTA)) {
     statefunc_heater = heat;
   };
-  if (temp_sens_check() > (TEMP_OPTIM + TEMP_DELTA)) {
-    statefunc_heater = cooling;
+  const int vent_delay = 8;//интервал проветривания
+  if ((temp_sens_check() > (TEMP_OPTIM + TEMP_DELTA)) || (humid_sens_check() > (HUMID_OPTIM + HUMID_DELTA)) || ((time_of_day() - LAST_VENT_TIME) > vent_delay)) {
+    statefunc_heater = vent;
   };
 };
 
@@ -102,10 +114,10 @@ void heat() {
 };
 
 
-void cooling() {
+void vent() {
   digitalWrite(FORGE, LOW);
   digitalWrite(FAN, HIGH);
-  if (temp_sens_check() < TEMP_OPTIM) {
+  if ((temp_sens_check() < (TEMP_OPTIM)) || (humid_sens_check() < (HUMID_OPTIM - HUMID_DELTA))) {
     statefunc_heater = heater_off;
   };
 };

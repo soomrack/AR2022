@@ -1,0 +1,177 @@
+#define M1_DIR 4
+#define M1_PWM 5
+#define M2_DIR 7
+#define M2_PWM 6
+#define Button_Pin 8
+#define SensorLeft A2
+#define Yinit 700 //эталонный показатель линии
+#define Vinit 200 //cкорость движения
+#define KP 3 //П коэффициент
+#define KI 0.1  //И коэффициент
+bool buttonWasUp = false;
+bool buttonEnabled = false;
+
+bool ButtonRead(int ButtonPin)
+{
+     // узнаем, отпущена ли кнопка сейчас
+   bool buttonIsUp = digitalRead(Button_Pin);
+ 
+   // если кнопка была отпущена и не отпущена сейчас
+   if (buttonWasUp && !buttonIsUp) {
+
+      // исключаем дребезг контактов тактовой кнопки
+      //delay(10);
+
+    // и считываем сигнал с кнопки снова
+    buttonIsUp = digitalRead(Button_Pin);
+
+      // если кнопка нажата, то переворачиваем сигнал кнопки
+      if (!buttonIsUp) {
+         buttonEnabled = !buttonEnabled;
+      }
+   }
+   // запоминаем состояние кнопки для новой итерации
+   buttonWasUp = buttonIsUp;
+   return buttonEnabled;
+}
+
+void InitMotors()
+{
+  pinMode(M1_DIR, OUTPUT);
+  pinMode(M1_PWM, OUTPUT);
+  pinMode(M2_DIR, OUTPUT);
+  pinMode(M2_PWM, OUTPUT);
+}
+
+void Motors(int Speed1, int Speed2)
+{
+  if(Speed1 > 255) Speed1 = 255;
+  if(Speed1 < -255) Speed1 = -255;
+  if(Speed2 > 255) Speed2 = 255;
+  if(Speed2 < -255) Speed2 = -255;
+
+  if(Speed1 > 0)
+  {
+    digitalWrite(M1_DIR, 1);
+    analogWrite(M1_PWM, Speed1);
+  }
+  else
+  {
+    digitalWrite(M1_DIR, 0);
+    analogWrite(M1_PWM, -Speed1);
+  }
+
+  if(Speed2 > 0)
+  {
+    digitalWrite(M2_DIR, 1);
+    analogWrite(M2_PWM, Speed2);
+  }
+  else
+  {
+    digitalWrite(M2_DIR, 0);
+    analogWrite(M2_PWM, -Speed2);
+  }
+}
+
+int LineSensorRead(int SensorPin)
+{
+  if(SensorPin < A0 || SensorPin > A3)
+    return -1;
+
+  int Data = analogRead(SensorPin);
+  return Data;
+}
+
+void Stop()
+{
+  Motors(0, 0);
+}
+int sumErr=0;
+
+void Line()
+{
+  int sensor1,U,error;
+  sensor1 = analogRead(SensorLeft);
+  error = sensor1 - Yinit;
+  sumErr += error;
+  if (abs(error)<60) //малая ошибка не учитывается
+  {
+   error=0;
+   sumErr=0;
+  }
+  U = KP * (error)+KI*sumErr;// вычисляем коррекцию скорости (U)
+  Motors(Vinit+U/2,Vinit-U/2);
+  Serial.print(ButtonRead(Button_Pin));
+  Serial.print("  1  ");
+  Serial.print("message");
+  Serial.print(LineSensorRead(SensorLeft));
+  Serial.println();
+}
+
+void SearchLine()
+{
+  int V=0;
+  int SumError=0;
+  int error=0;
+  int sensor2;
+  sensor2 = analogRead(SensorLeft);
+  while (abs(sensor2-Yinit)>100 && ButtonRead(Button_Pin))
+  {
+  sensor2 = analogRead(SensorLeft);
+  error = sensor2 - Yinit;
+  SumError += error;
+  if (abs(SumError)>500)
+  {
+   SumError=0;
+  }
+  V = 2*SumError;
+  Motors(Vinit+V,Vinit-2*V);
+  if (abs(sensor2-Yinit)<100)
+  {
+   Stop();
+   return;
+  }
+  Serial.print(abs(sensor2-Yinit));
+  Serial.print("  ||  ");
+  Serial.println(SumError);
+    /*Motors(250-600*t/(t+100),-250+450*t/(t+100));
+    delay(50);
+    sensor2 = analogRead(SensorLeft);
+    if(abs(sensor2-Yinit)<250) break;
+    Motors(100,100);
+    Serial.print(t);
+    Serial.print("  |  ");
+    Serial.print(abs(sensor2-Yinit));
+    Serial.print("  ||  ");
+    Serial.print(LineSensorRead(SensorLeft));
+    Serial.print("  2  ");
+    Serial.print(-200+450*t/(t+100));
+    Serial.print("  _  ");
+    Serial.println(200-450*t/(t+100));
+    t=t+1;
+    sensor2 = analogRead(SensorLeft);
+    if(abs(sensor2-Yinit)<250) break;
+    delay(50);*/
+  }
+}
+
+void setup()
+{
+  pinMode(12, INPUT_PULLUP);
+  InitMotors();
+  Serial.begin(9600);
+}
+
+void loop()
+{
+  if (ButtonRead(Button_Pin))
+  {
+  while (ButtonRead(Button_Pin))
+  {
+    SearchLine();
+    Stop();
+    Line();
+  }
+  }
+  Stop();
+}

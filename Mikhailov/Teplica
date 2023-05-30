@@ -76,7 +76,7 @@ void Pump(int& t) {
 
 void Fan(int& t) {
   bool FAN_SIGNAL;
-  FAN_SIGNAL = (analogRead(SENSOR_WATER) >= 500) ? HIGH : LOW;
+  FAN_SIGNAL = (dht.readTemperature() >= 20) ? HIGH : LOW;
   digitalWrite(FAN, FAN_SIGNAL);
   OneTimeLoop(TIME_WORKING_LIGHT, t);
 }

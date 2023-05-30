@@ -13,6 +13,8 @@
 int TEMP_OPTIM = 21;                                                 // оптимальная температура теплицы
 int TEMP_DELTA = 5;                                                  // разброс температуры теплицы
 unsigned long TEMP_SENS_DELAY = 5;                                   // время между срабатываниями датчика температуры (не меньше 5 сек)
+float VENTILATION_START = 19;                                        //время начала проветривания
+float VENTILATION_END = 19.25;                                       // время окончания проветривания
 float START_TIME = 12.5;                                             // время запуска теплицы
 float LIGHT_HOURS_PER_DAY = 12;                                      // продолжительность светового дня
 float LIGHT_SUNRISE_TIME = 8;                                        // время начала светового дня
@@ -64,7 +66,7 @@ int light_sens_check() {
 }
 
 
-void heater_off(), heat(), cooling(), pump_on(), pump_off(), light_on(), light_off();  // состояния
+void heater_off(), heat(), cooling(), ventilation(), pump_on(), pump_off(), light_on(), light_off();  // состояния
 
 
 void (*statefunc_heater)() = heater_off;  // State pointer
@@ -94,6 +96,9 @@ void heater_off() {
   if (temp_sens_check() > (TEMP_OPTIM + TEMP_DELTA)) {
     statefunc_heater = cooling;
   };
+  if ((time_of_day() > VENTILATION_START) && (time_of_day() < VENTILATION_END)) {
+    statefunc_heater = ventilation;
+  };
 };
 
 
@@ -110,6 +115,15 @@ void cooling() {
   digitalWrite(FORGE, LOW);
   digitalWrite(FAN, HIGH);
   if (temp_sens_check() < TEMP_OPTIM) {
+    statefunc_heater = heater_off;
+  };
+};
+
+
+void ventilation() {
+  digitalWrite(FORGE, LOW);
+  digitalWrite(FAN, HIGH);
+  if ((time_of_day() < VENTILATION_START) || (time_of_day() > VENTILATION_END)) {
     statefunc_heater = heater_off;
   };
 };
